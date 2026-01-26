@@ -38,5 +38,8 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Configure npm registry
+        run: npm config set registry https://registry.npmjs.org/
+
       - name: Publish to npm
         run: npm publish --provenance --access public

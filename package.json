@@ -79,6 +79,10 @@
     "ai",
     "coding-agent"
   ],
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
