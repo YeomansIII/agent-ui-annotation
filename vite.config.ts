@@ -2,10 +2,12 @@ import { defineConfig } from 'vite';
 import { resolve } from 'path';
 import dts from 'vite-plugin-dts';
 import vue from '@vitejs/plugin-vue';
+import { svelte } from '@sveltejs/vite-plugin-svelte';
 
 export default defineConfig({
   plugins: [
     vue(),
+    svelte(),
     dts({
       include: ['src'],
       rollupTypes: false,
@@ -26,16 +28,18 @@ export default defineConfig({
         'adapters/react/AgentUIAnnotation': resolve(__dirname, 'src/adapters/react/AgentUIAnnotation.tsx'),
         'adapters/vanilla/index': resolve(__dirname, 'src/adapters/vanilla/index.ts'),
         'adapters/vue/index': resolve(__dirname, 'src/adapters/vue/index.ts'),
+        'adapters/svelte/index': resolve(__dirname, 'src/adapters/svelte/index.ts'),
       },
       formats: ['es'],
     },
     rollupOptions: {
-      external: ['react', 'react-dom', 'vue'],
+      external: ['react', 'react-dom', 'vue', /^svelte(\/.*)?$/],
       output: {
         globals: {
           react: 'React',
           'react-dom': 'ReactDOM',
           vue: 'Vue',
+          svelte: 'Svelte',
         },
         // Preserve module structure for proper tree-shaking
         preserveModules: false,

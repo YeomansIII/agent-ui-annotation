@@ -108,28 +108,60 @@ function handleCopy(markdown: string) {
 </template>
 ```
 
+### Svelte 5
+
+```svelte
+<script lang="ts">
+  import { AgentUIAnnotation } from 'agent-ui-annotation/svelte';
+  import type { Annotation } from 'agent-ui-annotation/svelte';
+
+  let annotation: AgentUIAnnotation;
+
+  const onAnnotationCreate = (a: Annotation) => console.log('Created:', a);
+  const onCopy = (content: string) => console.log('Copied:', content);
+</script>
+
+<AgentUIAnnotation
+  bind:this={annotation}
+  theme="auto"
+  outputLevel="standard"
+  {onAnnotationCreate}
+  {onCopy}
+/>
+<button onclick={() => annotation.activate()}>Start Annotating</button>
+<button onclick={() => annotation.copyOutput()}>Copy Output</button>
+```
+
 ### Angular
 
 ```typescript
-// app.module.ts
-import { NgModule, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import 'agent-ui-annotation'; // Registers the custom element
+import { Component, CUSTOM_ELEMENTS_SCHEMA, viewChild, ElementRef, afterNextRender } from '@angular/core';
+import type { AnnotationElement } from 'agent-ui-annotation';
+import 'agent-ui-annotation';
 
-@NgModule({
+@Component({
+  selector: 'app-root',
   schemas: [CUSTOM_ELEMENTS_SCHEMA],
-  // ...
+  template: `
+    <agent-ui-annotation #annotation theme="auto" output-level="standard"></agent-ui-annotation>
+    <button (click)="activate()">Start Annotating</button>
+  `,
 })
-export class AppModule {}
-```
+export class App {
+  annotationRef = viewChild<ElementRef<AnnotationElement>>('annotation');
 
-```html
-<!-- app.component.html -->
-<agent-ui-annotation
-  theme="auto"
-  output-level="standard"
-  (annotation:create)="onAnnotationCreate($event)"
-  (annotation:copy)="onCopy($event)"
-></agent-ui-annotation>
+  constructor() {
+    afterNextRender(() => {
+      this.annotationRef()?.nativeElement.addEventListener('annotation:create', (e: Event) => {
+        console.log('Created:', (e as CustomEvent).detail.annotation);
+      });
+    });
+  }
+
+  activate() {
+    this.annotationRef()?.nativeElement.activate();
+  }
+}
 ```
 
 ## Features
@@ -249,7 +281,7 @@ agent-ui-annotation uses a three-layer architecture:
 
 1. **Core** - Framework-agnostic business logic
 2. **Web Components** - Shadow DOM rendering
-3. **Framework Adapters** - React, Vue 3, Angular, Vanilla JS wrappers
+3. **Framework Adapters** - React, Vue 3, Svelte 5, Angular, Vanilla JS wrappers
 
 ## Development
 

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vanilla JS Example</title>
+</head>
+<body>
+  <h1>Agent UI Annotation - Vanilla JS</h1>
+  <button id="toggle">Toggle Annotation Tool</button>
+  <button id="copy">Copy Output</button>
+
+  <script type="module">
+    import { createAnnotation } from 'agent-ui-annotation/vanilla';
+
+    const annotation = createAnnotation({
+      theme: 'auto',
+      outputLevel: 'standard',
+      onScopeCreate: (scope) => console.log('Created:', scope),
+      onCopy: (content) => console.log('Copied:', content),
+    });
+
+    document.getElementById('toggle').onclick = () => annotation.toggle();
+    document.getElementById('copy').onclick = () => annotation.copyOutput();
+  </script>
+</body>
+</html>

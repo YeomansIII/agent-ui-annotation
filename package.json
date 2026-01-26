@@ -1,6 +1,6 @@
 {
   "name": "agent-ui-annotation",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Web page annotation toolbar for AI coding agents",
   "type": "module",
   "main": "./dist/agent-ui-annotation.js",
@@ -22,6 +22,11 @@
     "./vue": {
       "import": "./dist/adapters/vue/index.js",
       "types": "./dist/adapters/vue/index.d.ts"
+    },
+    "./svelte": {
+      "svelte": "./dist/adapters/svelte/index.js",
+      "import": "./dist/adapters/svelte/index.js",
+      "types": "./dist/adapters/svelte/index.d.ts"
     }
   },
   "files": [
@@ -51,15 +56,18 @@
     "jsdom": "^27.4.0",
     "typescript": "^5.3.0",
     "typescript-eslint": "^8.53.1",
-    "vite": "^5.0.0",
-    "vite-plugin-dts": "^3.6.0",
-    "vitest": "^1.0.0",
-    "vue": "^3.5.27"
+    "vite": "^6.0.0",
+    "vite-plugin-dts": "^4.0.0",
+    "vitest": "^3.0.0",
+    "vue": "^3.5.27",
+    "svelte": "^5.37.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.0"
   },
   "peerDependencies": {
     "react": ">=17.0.0",
     "react-dom": ">=17.0.0",
-    "vue": ">=3.3.0"
+    "vue": ">=3.3.0",
+    "svelte": ">=5.0.0"
   },
   "peerDependenciesMeta": {
     "react": {
@@ -69,6 +77,9 @@
       "optional": true
     },
     "vue": {
+      "optional": true
+    },
+    "svelte": {
       "optional": true
     }
   },
