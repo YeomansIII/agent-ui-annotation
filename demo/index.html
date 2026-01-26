@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>agent-ui-annotation Demo</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+      color: #1a1a1a;
+      background: #f5f5f5;
+    }
+
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      background: white;
+      border-bottom: 1px solid #e5e5e5;
+      padding: 1rem 2rem;
+      z-index: 100;
+    }
+
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #AF52DE;
+    }
+
+    .mascot {
+      flex-shrink: 0;
+    }
+
+    .mascot-large {
+      margin-bottom: 1rem;
+    }
+
+    @keyframes glow-pulse {
+      0%, 100% { opacity: 0.7; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.2); }
+    }
+
+    .glow-aura {
+      animation: glow-pulse 2s ease-in-out infinite;
+    }
+
+    nav ul {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    nav a {
+      color: #666;
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    nav a:hover {
+      color: #AF52DE;
+    }
+
+    /* Main content */
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    /* Hero section */
+    .hero {
+      text-align: center;
+      padding: 4rem 2rem;
+      background: white;
+      border-radius: 12px;
+      margin-bottom: 2rem;
+    }
+
+    .hero h1 {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    .hero p {
+      font-size: 1.25rem;
+      color: #666;
+      max-width: 600px;
+      margin: 0 auto 2rem;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: #AF52DE;
+      color: white;
+      border: none;
+    }
+
+    .btn-primary:hover {
+      background: #9B47C7;
+    }
+
+    .btn-secondary {
+      background: white;
+      color: #1a1a1a;
+      border: 1px solid #e5e5e5;
+    }
+
+    .btn-secondary:hover {
+      background: #f5f5f5;
+    }
+
+    /* Features grid */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .feature-card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+
+    .feature-card h3 {
+      margin-bottom: 0.5rem;
+    }
+
+    .feature-card p {
+      color: #666;
+    }
+
+    /* Demo section */
+    .demo-section {
+      background: white;
+      border-radius: 12px;
+      padding: 2rem;
+      margin-bottom: 2rem;
+    }
+
+    .demo-section h2 {
+      margin-bottom: 1rem;
+    }
+
+    /* Form demo */
+    .form-demo {
+      max-width: 400px;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #e5e5e5;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: inherit;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #AF52DE;
+    }
+
+    /* Table demo */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #e5e5e5;
+    }
+
+    th {
+      font-weight: 600;
+      background: #f9f9f9;
+    }
+
+    /* Card list */
+    .card-list {
+      display: flex;
+      gap: 1rem;
+      overflow-x: auto;
+      padding: 1rem 0;
+    }
+
+    .card {
+      flex: 0 0 200px;
+      background: #f9f9f9;
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .card img {
+      width: 100%;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+      background: #ddd;
+    }
+
+    .card h4 {
+      margin-bottom: 0.25rem;
+    }
+
+    .card p {
+      font-size: 0.875rem;
+      color: #666;
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 2rem;
+      color: #666;
+    }
+
+    /* Animation demo */
+    .animation-demo {
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid #e5e5e5;
+      border-top-color: #AF52DE;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .pulse {
+      width: 40px;
+      height: 40px;
+      background: #AF52DE;
+      border-radius: 50%;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.2); opacity: 0.7; }
+    }
+
+    .bounce {
+      width: 40px;
+      height: 40px;
+      background: #34C759;
+      border-radius: 8px;
+      animation: bounce 0.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes bounce {
+      to { transform: translateY(-20px); }
+    }
+
+    /* Console output */
+    .console {
+      background: #1a1a1a;
+      color: #34C759;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+      font-size: 0.875rem;
+      padding: 1rem;
+      border-radius: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .console-line {
+      margin-bottom: 0.25rem;
+    }
+
+    .console-line.error {
+      color: #FF3B30;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <div class="logo">
+        <img class="mascot" src="../src/assets/mascot.svg" alt="agent-ui-annotation mascot" width="28" height="28">
+        agent-ui-annotation
+      </div>
+      <ul>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#demo">Demo</a></li>
+        <li><a href="#docs">Docs</a></li>
+        <li><a href="https://github.com" target="_blank">GitHub</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <img class="mascot-large" src="../src/assets/mascot.svg" alt="agent-ui-annotation mascot" width="64" height="64">
+      <h1>Annotate. Describe. Copy.</h1>
+      <p>agent-ui-annotation helps you communicate visual changes to AI coding agents by capturing element information and feedback in structured markdown.</p>
+      <div class="hero-buttons">
+        <button class="btn btn-primary" id="activate-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <circle cx="12" cy="12" r="6"/>
+            <circle cx="12" cy="12" r="2"/>
+          </svg>
+          Activate
+        </button>
+        <a href="#demo" class="btn btn-secondary">See Demo</a>
+      </div>
+    </section>
+
+    <section id="features" class="features">
+      <div class="feature-card">
+        <h3>Click to Annotate</h3>
+        <p>Click any element to add feedback. agent-ui-annotation captures the element type, location, and your notes.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Smart Element IDs</h3>
+        <p>Generates human-readable names like "button Save" and CSS selectors that AI agents can understand.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Multi-Select</h3>
+        <p>Drag to select multiple elements at once. Perfect for annotating entire sections.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Freeze Mode</h3>
+        <p>Pause animations and videos to capture specific states for your feedback.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Markdown Export</h3>
+        <p>Copy structured markdown at different detail levels: compact, standard, detailed, or forensic.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Persistent</h3>
+        <p>Your annotations are saved automatically and persist across page reloads.</p>
+      </div>
+    </section>
+
+    <section id="demo" class="demo-section">
+      <h2>Interactive Demo</h2>
+      <p>Try annotating the elements below! Click the "Activate" button above or the toolbar button in the corner.</p>
+
+      <div class="animation-demo">
+        <div class="spinner" title="Loading spinner"></div>
+        <div class="pulse" title="Pulse animation"></div>
+        <div class="bounce" title="Bounce animation"></div>
+      </div>
+    </section>
+
+    <section class="demo-section">
+      <h2>Form Elements</h2>
+      <form class="form-demo" onsubmit="return false;">
+        <div class="form-group">
+          <label for="name">Name</label>
+          <input type="text" id="name" placeholder="Enter your name">
+        </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="you@example.com">
+        </div>
+        <div class="form-group">
+          <label for="plan">Plan</label>
+          <select id="plan">
+            <option value="free">Free</option>
+            <option value="pro">Pro</option>
+            <option value="enterprise">Enterprise</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="message">Message</label>
+          <textarea id="message" rows="3" placeholder="Your message..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Submit</button>
+      </form>
+    </section>
+
+    <section class="demo-section">
+      <h2>Data Table</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Role</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Alice Johnson</td>
+            <td>Active</td>
+            <td>Admin</td>
+            <td><button class="btn btn-secondary">Edit</button></td>
+          </tr>
+          <tr>
+            <td>Bob Smith</td>
+            <td>Pending</td>
+            <td>User</td>
+            <td><button class="btn btn-secondary">Edit</button></td>
+          </tr>
+          <tr>
+            <td>Carol White</td>
+            <td>Active</td>
+            <td>Editor</td>
+            <td><button class="btn btn-secondary">Edit</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="demo-section">
+      <h2>Card List</h2>
+      <div class="card-list">
+        <div class="card">
+          <img src="" alt="Product 1">
+          <h4>Product One</h4>
+          <p>A great product for your needs</p>
+        </div>
+        <div class="card">
+          <img src="" alt="Product 2">
+          <h4>Product Two</h4>
+          <p>Another excellent choice</p>
+        </div>
+        <div class="card">
+          <img src="" alt="Product 3">
+          <h4>Product Three</h4>
+          <p>Premium quality guaranteed</p>
+        </div>
+        <div class="card">
+          <img src="" alt="Product 4">
+          <h4>Product Four</h4>
+          <p>Best value for money</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="demo-section">
+      <h2>Console Output</h2>
+      <div class="console" id="console">
+        <div class="console-line">[agent-ui-annotation] Ready. Click "Activate" to start annotating.</div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>agent-ui-annotation - Built for AI coding agents</p>
+  </footer>
+
+  <!-- Annotation Element -->
+  <agent-ui-annotation id="annotation" theme="auto" output-level="standard"></agent-ui-annotation>
+
+  <script type="module">
+    import { createAnnotation } from './main.ts';
+
+    const consoleEl = document.getElementById('console');
+    const activateBtn = document.getElementById('activate-btn');
+
+    function log(message, isError = false) {
+      const line = document.createElement('div');
+      line.className = 'console-line' + (isError ? ' error' : '');
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      consoleEl.appendChild(line);
+      consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
+    // Get the Annotation element
+    const annotation = document.getElementById('annotation');
+
+    // Listen to events
+    annotation.addEventListener('annotation:scope', (e) => {
+      log(`Scope created: ${e.detail.scope.elementInfo.humanReadable}`);
+    });
+
+    annotation.addEventListener('annotation:update', (e) => {
+      log(`Scope updated: #${e.detail.scope.number}`);
+    });
+
+    annotation.addEventListener('annotation:delete', (e) => {
+      log(`Scope deleted: ${e.detail.id}`);
+    });
+
+    annotation.addEventListener('annotation:clear', (e) => {
+      log(`Cleared ${e.detail.scopes.length} scope(s)`);
+    });
+
+    annotation.addEventListener('annotation:copy', (e) => {
+      log(`Copied ${e.detail.level} output to clipboard`);
+    });
+
+    // Activate button
+    activateBtn.addEventListener('click', () => {
+      annotation.activate();
+      log('agent-ui-annotation activated');
+    });
+  </script>
+</body>
+</html>

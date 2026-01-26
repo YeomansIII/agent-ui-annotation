@@ -1,0 +1,280 @@
+/**
+ * Core TypeScript interfaces for Annotation
+ */
+
+/** Unique identifier for scopes */
+export type AnnotationId = string;
+
+/** Position coordinates */
+export interface Position {
+  x: number;
+  y: number;
+}
+
+/** Element bounding rectangle */
+export interface ElementRect {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+  bottom: number;
+  right: number;
+}
+
+/** Accessibility information for an element */
+export interface AccessibilityInfo {
+  role: string | null;
+  ariaLabel: string | null;
+  ariaDescribedBy: string | null;
+  ariaLabelledBy: string | null;
+  tabIndex: number | null;
+  isInteractive: boolean;
+}
+
+/** Computed styles subset for forensic output */
+export interface ComputedStylesSubset {
+  display: string;
+  position: string;
+  visibility: string;
+  opacity: string;
+  zIndex: string;
+  overflow: string;
+  pointerEvents: string;
+  cursor: string;
+  backgroundColor: string;
+  color: string;
+  fontSize: string;
+  fontFamily: string;
+  fontWeight: string;
+  lineHeight: string;
+  padding: string;
+  margin: string;
+  border: string;
+  borderRadius: string;
+  boxShadow: string;
+  transform: string;
+  transition: string;
+}
+
+/** Element context for nearby elements */
+export interface NearbyContext {
+  parent: string | null;
+  previousSibling: string | null;
+  nextSibling: string | null;
+  containingLandmark: string | null;
+}
+
+/** Full element information collected for scope */
+export interface ElementInfo {
+  /** Human-readable identifier like 'button "Save"' */
+  humanReadable: string;
+  /** CSS selector path */
+  selectorPath: string;
+  /** Full DOM path for forensic output */
+  fullDomPath: string;
+  /** Element tag name */
+  tagName: string;
+  /** Element ID if present */
+  id: string | null;
+  /** Class list */
+  classes: string[];
+  /** Bounding rectangle */
+  rect: ElementRect;
+  /** Accessibility info */
+  accessibility: AccessibilityInfo;
+  /** Computed styles (forensic) */
+  computedStyles: ComputedStylesSubset | null;
+  /** Nearby element context */
+  nearbyContext: NearbyContext;
+  /** Inner text (truncated) */
+  innerText: string;
+  /** Element attributes */
+  attributes: Record<string, string>;
+  /** Whether element is fixed/sticky positioned */
+  isFixed: boolean;
+}
+
+/** Single scope (annotation) */
+export interface Scope {
+  id: AnnotationId;
+  /** Display number (1-based) */
+  number: number;
+  /** User's comment/note */
+  comment: string;
+  /** Element information snapshot */
+  elementInfo: ElementInfo;
+  /** Original DOM element reference (may become stale) */
+  element: Element | null;
+  /** Timestamp of creation */
+  createdAt: number;
+  /** Timestamp of last update */
+  updatedAt: number;
+  /** Selected text at time of scope creation */
+  selectedText: string | null;
+  /** Whether created via multi-select */
+  isMultiSelect: boolean;
+  /** Click X coordinate (viewport-relative) */
+  clickX: number;
+  /** Click Y coordinate (viewport-relative) */
+  clickY: number;
+}
+
+/** Type alias for Annotation (same as Scope) */
+export type Annotation = Scope;
+
+/** Output detail level */
+export type OutputLevel = 'compact' | 'standard' | 'detailed' | 'forensic';
+
+/** Theme mode */
+export type ThemeMode = 'light' | 'dark' | 'auto';
+
+/** Toolbar position */
+export type ToolbarPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+
+/** Tool mode */
+export type ToolMode = 'select' | 'multi-select' | 'disabled';
+
+/** Settings configuration */
+export interface Settings {
+  theme: ThemeMode;
+  outputLevel: OutputLevel;
+  toolbarPosition: ToolbarPosition;
+  showTooltips: boolean;
+  showMarkerNumbers: boolean;
+  freezeOnScope: boolean;
+  persistScopes: boolean;
+  scopeColor: string;
+  blockInteractions: boolean;
+  autoClearAfterCopy: boolean;
+}
+
+/** Selection rectangle for multi-select */
+export interface SelectionRect {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
+}
+
+/** Environment info for forensic output */
+export interface EnvironmentInfo {
+  userAgent: string;
+  viewport: { width: number; height: number };
+  devicePixelRatio: number;
+  url: string;
+  timestamp: string;
+  scrollPosition: { x: number; y: number };
+}
+
+/** Event types emitted by the event bus */
+export type EventMap = {
+  'scope:create': { scope: Scope };
+  'scope:update': { scope: Scope };
+  'scope:delete': { id: AnnotationId };
+  'scope:select': { id: AnnotationId | null };
+  'scopes:clear': { scopes: Scope[] };
+  'element:hover': { element: Element | null; elementInfo: ElementInfo | null };
+  'element:click': { element: Element; elementInfo: ElementInfo; clickX: number; clickY: number };
+  'mode:change': { mode: ToolMode };
+  'toolbar:toggle': { expanded: boolean };
+  'toolbar:drag': { position: Position };
+  'settings:change': { settings: Partial<Settings> };
+  'output:copy': { content: string; level: OutputLevel };
+  'multiselect:start': { position: Position };
+  'multiselect:update': { rect: SelectionRect };
+  'multiselect:end': { elements: Element[] };
+  'freeze:toggle': { frozen: boolean };
+  'activate': undefined;
+  'deactivate': undefined;
+}
+
+/** Store state shape */
+export interface AppState {
+  /** Map of all scopes by ID */
+  scopes: Map<AnnotationId, Scope>;
+  /** Currently selected scope ID */
+  selectedAnnotationId: AnnotationId | null;
+  /** Currently hovered element */
+  hoveredElement: Element | null;
+  /** Info about hovered element */
+  hoveredElementInfo: ElementInfo | null;
+  /** Current tool mode */
+  mode: ToolMode;
+  /** Whether toolbar is expanded */
+  toolbarExpanded: boolean;
+  /** Toolbar position */
+  toolbarPosition: Position;
+  /** User settings */
+  settings: Settings;
+  /** Whether currently drag-selecting */
+  isSelecting: boolean;
+  /** Current selection rectangle */
+  selectionRect: SelectionRect | null;
+  /** Elements currently within selection rectangle (for preview highlighting) */
+  selectionPreviewElements: Element[];
+  /** Whether animations/videos are frozen */
+  isFrozen: boolean;
+  /** Whether popup is visible */
+  popupVisible: boolean;
+  /** ID of scope being edited in popup */
+  popupAnnotationId: AnnotationId | null;
+  /** Element info for popup (stored separately from hover to prevent clearing) */
+  popupElementInfo: ElementInfo | null;
+  /** Click position for popup placement (viewport coords) */
+  popupClickX: number;
+  popupClickY: number;
+  /** Click position for marker placement (document coords for non-fixed, viewport for fixed) */
+  pendingMarkerX: number;
+  pendingMarkerY: number;
+  /** Whether pending marker element is fixed */
+  pendingMarkerIsFixed: boolean;
+  /** Multiple selected elements for batch scope creation */
+  multiSelectElements: Element[];
+  /** Element infos for multi-select (parallel array to multiSelectElements) */
+  multiSelectInfos: ElementInfo[];
+  /** Whether markers are visible */
+  markersVisible: boolean;
+  /** Set of marker IDs that are animating */
+  animatingMarkers: Set<AnnotationId>;
+  /** Set of marker IDs that are exiting */
+  exitingMarkers: Set<AnnotationId>;
+  /** ID of marker being deleted */
+  deletingMarkerId: AnnotationId | null;
+  /** Marker ID to start renumbering from */
+  renumberFrom: number | null;
+  /** Whether "copied" feedback is showing */
+  showCopiedFeedback: boolean;
+  /** Whether "cleared" feedback is showing */
+  showClearedFeedback: boolean;
+  /** Current scroll position */
+  scrollY: number;
+  /** Whether entrance animation should play */
+  showEntranceAnimation: boolean;
+  /** Whether toolbar is being dragged */
+  isDraggingToolbar: boolean;
+  /** Whether settings panel is visible */
+  settingsPanelVisible: boolean;
+}
+
+/** Custom element events */
+export interface AnnotationEventDetail {
+  'agentscope:scope': { scope: Scope };
+  'agentscope:update': { scope: Scope };
+  'agentscope:delete': { id: AnnotationId };
+  'agentscope:clear': { scopes: Scope[] };
+  'agentscope:copy': { content: string; level: OutputLevel };
+  'agentscope:error': { message: string; error?: Error };
+}
+
+/** Marker color options */
+export const SCOPE_COLORS = {
+  purple: '#AF52DE',
+  blue: '#3c82f7',
+  cyan: '#5AC8FA',
+  green: '#34C759',
+  yellow: '#FFD60A',
+  orange: '#FF9500',
+  red: '#FF3B30',
+} as const;
+
+export type AnnotationColor = keyof typeof SCOPE_COLORS;

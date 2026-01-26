@@ -1,0 +1,58 @@
+<svg viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Glow gradient for the aura -->
+    <radialGradient id="glowGradient" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFCC33" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#FFAA00" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="#FF8800" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Subtle wing gradient -->
+    <linearGradient id="wingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E8F4FF" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#B8D4F0" stop-opacity="0.2"/>
+    </linearGradient>
+
+    <style>
+      @keyframes glow-pulse {
+        0%, 100% { opacity: 0.7; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.2); }
+      }
+      .glow-aura {
+        animation: glow-pulse 2s ease-in-out infinite;
+        transform-origin: 12px 17px;
+      }
+    </style>
+  </defs>
+
+  <!-- Glow aura (animated) -->
+  <ellipse class="glow-aura" cx="12" cy="17" rx="6" ry="5" fill="url(#glowGradient)"/>
+
+  <!-- Left wing -->
+  <ellipse cx="7" cy="11" rx="3" ry="5" fill="url(#wingGradient)" transform="rotate(-25 7 11)"/>
+
+  <!-- Right wing -->
+  <ellipse cx="17" cy="11" rx="3" ry="5" fill="url(#wingGradient)" transform="rotate(25 17 11)"/>
+
+  <!-- Body (thorax + abdomen) -->
+  <path d="M12 7 Q15 10 14.5 15 Q14 19 12 20 Q10 19 9.5 15 Q9 10 12 7" fill="#3D4852"/>
+
+  <!-- Glowing abdomen -->
+  <ellipse cx="12" cy="17" rx="2.5" ry="3" fill="#FFD044"/>
+  <ellipse cx="12" cy="17" rx="1.5" ry="2" fill="#FFE57A"/>
+
+  <!-- Head -->
+  <ellipse cx="12" cy="6" rx="3" ry="2.5" fill="#3D4852"/>
+
+  <!-- Eyes -->
+  <ellipse cx="10.3" cy="5.8" rx="1" ry="1.1" fill="#1a1a2e"/>
+  <ellipse cx="13.7" cy="5.8" rx="1" ry="1.1" fill="#1a1a2e"/>
+
+  <!-- Eye highlights (adds life) -->
+  <circle cx="10.7" cy="5.4" r="0.4" fill="#fff" fill-opacity="0.9"/>
+  <circle cx="14.1" cy="5.4" r="0.4" fill="#fff" fill-opacity="0.9"/>
+
+  <!-- Antennae -->
+  <path d="M10 4 Q9 2.5 8.5 2" stroke="#3D4852" stroke-width="0.7" stroke-linecap="round" fill="none"/>
+  <path d="M14 4 Q15 2.5 15.5 2" stroke="#3D4852" stroke-width="0.7" stroke-linecap="round" fill="none"/>
+</svg>
