@@ -27,6 +27,8 @@ yarn add agent-ui-annotation
 
 ## Quick Start
 
+> **Note:** agent-ui-annotation is a development tool for communicating UI changes to AI coding agents. You should conditionally include it based on your environment to avoid shipping it to production.
+
 ### Vanilla JavaScript
 
 ```javascript
@@ -67,6 +69,30 @@ function App() {
     />
   );
 }
+```
+
+### Angular
+
+```typescript
+// app.module.ts
+import { NgModule, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import 'agent-ui-annotation'; // Registers the custom element
+
+@NgModule({
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
+  // ...
+})
+export class AppModule {}
+```
+
+```html
+<!-- app.component.html -->
+<agent-ui-annotation
+  theme="auto"
+  output-level="standard"
+  (annotation:create)="onAnnotationCreate($event)"
+  (annotation:copy)="onCopy($event)"
+></agent-ui-annotation>
 ```
 
 ## Features
