@@ -4,6 +4,8 @@
 [![npm downloads](https://img.shields.io/npm/dm/agent-ui-annotation.svg)](https://www.npmjs.com/package/agent-ui-annotation)
 [![license](https://img.shields.io/npm/l/agent-ui-annotation.svg)](https://github.com/YeomansIII/agent-ui-annotation/blob/main/LICENSE)
 
+**[Live Demo](https://yeomansiii.github.io/agent-ui-annotation/)**
+
 A web page annotation toolbar for AI coding agents. Click on elements, add notes, and export structured markdown that helps AI assistants locate and modify specific UI components.
 
 ## Overview
