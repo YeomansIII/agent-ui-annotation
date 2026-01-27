@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=800, height=450">
+  <title>AgentScope Workflow Animation</title>
+  <style>
+    /* ========================================
+       Colors from project theme
+       ======================================== */
+    :root {
+      --accent: #AF52DE;
+      --accent-hover: #9B47C7;
+      --accent-light: rgba(175, 82, 222, 0.1);
+      --primary: #1a1a1a;
+      --secondary: #666666;
+      --muted: #999999;
+      --bg: #ffffff;
+      --bg-secondary: rgba(245, 245, 245, 0.95);
+      --border: rgba(0, 0, 0, 0.1);
+      --success: #34C759;
+      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+      --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.15);
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --radius-full: 9999px;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    }
+
+    /* ========================================
+       Base styles
+       ======================================== */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 800px;
+      height: 450px;
+      background: var(--bg);
+      font-family: var(--font-family);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* ========================================
+       Browser skeleton
+       ======================================== */
+    .browser {
+      position: absolute;
+      top: 30px;
+      left: 50px;
+      width: 500px;
+      height: 320px;
+      border: 2px solid var(--primary);
+      border-radius: var(--radius-lg);
+      background: var(--bg);
+      overflow: hidden;
+    }
+
+    .browser-header {
+      height: 32px;
+      background: var(--bg-secondary);
+      border-bottom: 2px solid var(--primary);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 8px;
+    }
+
+    .browser-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      border: 2px solid var(--primary);
+    }
+
+    .browser-content {
+      padding: 20px;
+    }
+
+    /* Page wireframe elements */
+    .page-header {
+      height: 24px;
+      background: transparent;
+      border: 2px solid var(--secondary);
+      border-radius: 4px;
+      margin-bottom: 16px;
+    }
+
+    .page-card {
+      border: 2px solid var(--secondary);
+      border-radius: var(--radius-md);
+      padding: 16px;
+    }
+
+    .page-line {
+      height: 12px;
+      background: transparent;
+      border: 2px solid var(--border);
+      border-radius: 4px;
+      margin-bottom: 10px;
+    }
+
+    .page-line.short {
+      width: 60%;
+    }
+
+    .page-line.medium {
+      width: 80%;
+    }
+
+    /* Target button */
+    .target-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 24px;
+      margin-top: 16px;
+      border: 2px solid var(--primary);
+      border-radius: var(--radius-md);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--primary);
+      background: transparent;
+      transition: all 0.15s ease;
+    }
+
+    .target-button.highlight {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+    }
+
+    /* ========================================
+       Cursor
+       ======================================== */
+    .cursor {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      opacity: 0;
+      z-index: 100;
+      pointer-events: none;
+      transform-origin: top left;
+    }
+
+    .cursor svg {
+      width: 100%;
+      height: 100%;
+      filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.3));
+    }
+
+    /* ========================================
+       Marker
+       ======================================== */
+    .marker {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      background: var(--accent);
+      border: 2px solid white;
+      border-radius: 50%;
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: var(--shadow-md);
+      transform: translate(-50%, -50%) scale(0);
+      opacity: 0;
+      z-index: 50;
+    }
+
+    /* ========================================
+       Popup
+       ======================================== */
+    .popup {
+      position: absolute;
+      width: 280px;
+      padding: 16px;
+      background: var(--bg);
+      border: 2px solid var(--primary);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-lg);
+      opacity: 0;
+      transform: scale(0.95) translateY(-8px);
+      z-index: 60;
+    }
+
+    .popup-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .popup-element {
+      font-weight: 500;
+      color: var(--primary);
+      font-size: 14px;
+    }
+
+    .popup-path {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .popup-close {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--secondary);
+      border-radius: 4px;
+      background: transparent;
+    }
+
+    .popup-textarea {
+      width: 100%;
+      height: 60px;
+      padding: 10px;
+      background: var(--bg-secondary);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-md);
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--primary);
+      resize: none;
+      margin-bottom: 12px;
+    }
+
+    .popup-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .popup-btn {
+      padding: 8px 16px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-md);
+      background: transparent;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--primary);
+    }
+
+    .popup-btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .popup-btn.primary.highlight {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+      transform: scale(1.02);
+    }
+
+    /* ========================================
+       Toolbar
+       ======================================== */
+    .toolbar {
+      position: absolute;
+      bottom: 40px;
+      right: 50px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      background: var(--bg);
+      border: 2px solid var(--primary);
+      border-radius: var(--radius-full);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .toolbar-btn {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: var(--radius-md);
+      background: transparent;
+    }
+
+    .toolbar-btn svg {
+      width: 18px;
+      height: 18px;
+      stroke: var(--primary);
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .toolbar-btn.highlight {
+      background: var(--accent-light);
+    }
+
+    .toolbar-btn.highlight svg {
+      stroke: var(--accent);
+    }
+
+    .toolbar-separator {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+    }
+
+    .scope-count {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0 8px;
+      font-size: 13px;
+      color: var(--secondary);
+      position: relative;
+    }
+
+    .scope-count svg {
+      width: 16px;
+      height: 16px;
+      stroke: var(--secondary);
+      fill: none;
+      stroke-width: 2;
+      flex-shrink: 0;
+    }
+
+    .scope-count .count-wrap {
+      position: relative;
+      width: 12px;
+      height: 16px;
+      margin-left: 4px;
+    }
+
+    .scope-count .count-0,
+    .scope-count .count-1 {
+      position: absolute;
+      top: 0;
+      left: 0;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    /* ========================================
+       Toast
+       ======================================== */
+    .toast {
+      position: absolute;
+      bottom: 105px;
+      right: 50px;
+      padding: 8px 16px;
+      background: var(--bg);
+      border: 2px solid var(--success);
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-md);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--success);
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    /* ========================================
+       Typewriter text
+       ======================================== */
+    .typing-text {
+      overflow: hidden;
+      white-space: nowrap;
+      width: 0;
+      color: var(--primary);
+    }
+
+    /* ========================================
+       Labels
+       ======================================== */
+    .phase-label {
+      position: absolute;
+      top: 36px;
+      right: 60px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+      opacity: 0;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ========================================
+       Watermark
+       ======================================== */
+    .watermark {
+      position: absolute;
+      bottom: 16px;
+      left: 32px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--secondary);
+      opacity: 0.7;
+    }
+
+    .watermark svg {
+      width: 16px;
+      height: 16px;
+      stroke: var(--accent);
+      fill: none;
+      stroke-width: 2;
+    }
+
+    /* ========================================
+       Output Overlay (Phase 4)
+       ======================================== */
+    .output-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.95);
+      width: 620px;
+      padding: 24px;
+      background: var(--bg);
+      border: 2px solid var(--primary);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+      opacity: 0;
+      z-index: 200;
+    }
+
+    .output-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--border);
+    }
+
+    .output-header svg {
+      width: 20px;
+      height: 20px;
+      stroke: var(--success);
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .output-title {
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--primary);
+    }
+
+    .output-badge {
+      margin-left: auto;
+      padding: 4px 10px;
+      background: rgba(52, 199, 89, 0.1);
+      border-radius: var(--radius-full);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--success);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .output-content {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--primary);
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      white-space: pre-wrap;
+    }
+
+    .output-content .md-h2 {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .output-content .md-h3 {
+      color: var(--secondary);
+      font-weight: 600;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .output-content .md-comment {
+      color: var(--accent);
+    }
+
+    .output-content .md-muted {
+      color: var(--muted);
+    }
+
+    /* ========================================
+       Animation Keyframes
+       ======================================== */
+
+    /* Easing function for bounce */
+    :root {
+      --bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Cursor movement - continuous path (8s timing) */
+    @keyframes cursor-move {
+      /* Enter from top right */
+      0% {
+        opacity: 0;
+        left: 550px;
+        top: 80px;
+        transform: scale(1);
+      }
+      2% {
+        opacity: 1;
+      }
+      /* Phase 1: Move to Save Changes button */
+      10% {
+        left: 163px;
+        top: 244px;
+        transform: scale(1);
+      }
+      /* Click on button */
+      12% {
+        transform: scale(0.85);
+      }
+      14% {
+        transform: scale(1);
+      }
+      /* Wait a moment */
+      17% {
+        left: 163px;
+        top: 244px;
+      }
+      /* Phase 2: Move toward popup (it appears) */
+      24% {
+        left: 400px;
+        top: 270px;
+      }
+      /* Move to Add Annotation button */
+      34% {
+        left: 497px;
+        top: 332px;
+        transform: scale(1);
+      }
+      /* Click Add Annotation */
+      36% {
+        transform: scale(0.85);
+      }
+      38% {
+        transform: scale(1);
+      }
+      /* Wait, then move to toolbar */
+      42% {
+        left: 497px;
+        top: 332px;
+      }
+      /* Phase 3: Move to copy button in toolbar */
+      50% {
+        left: 678px;
+        top: 384px;
+        transform: scale(1);
+      }
+      /* Click copy */
+      52% {
+        transform: scale(0.85);
+      }
+      54% {
+        transform: scale(1);
+        opacity: 1;
+      }
+      /* Fade out before Phase 4 overlay */
+      57% {
+        left: 678px;
+        top: 384px;
+        opacity: 0;
+      }
+      /* Stay hidden during Phase 4 */
+      95% {
+        opacity: 0;
+      }
+      100% {
+        opacity: 0;
+        left: 550px;
+        top: 80px;
+      }
+    }
+
+    /* Button highlight - when cursor hovers/clicks */
+    @keyframes button-highlight {
+      0%, 7% {
+        border-color: var(--primary);
+        box-shadow: none;
+      }
+      9%, 16% {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-light);
+      }
+      18% {
+        border-color: var(--primary);
+        box-shadow: none;
+      }
+      100% {
+        border-color: var(--primary);
+        box-shadow: none;
+      }
+    }
+
+    /* Marker entrance - appears after click */
+    @keyframes marker-enter {
+      0%, 12% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0);
+      }
+      15% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.2);
+      }
+      17%, 56% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      58% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0);
+      }
+    }
+
+    /* Popup entrance and exit - appears after marker */
+    @keyframes popup-show {
+      0%, 16% {
+        opacity: 0;
+        transform: scale(0.95) translateY(-8px);
+      }
+      19% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+      38% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+      41% {
+        opacity: 0;
+        transform: scale(0.95) translateY(-8px);
+      }
+      100% {
+        opacity: 0;
+      }
+    }
+
+    /* Typing animation */
+    @keyframes typing {
+      0%, 21% { width: 0; }
+      33% { width: 130px; }
+      100% { width: 130px; }
+    }
+
+    /* Add Annotation button highlight - when cursor hovers/clicks */
+    @keyframes btn-highlight {
+      0%, 32% {
+        background: var(--accent);
+        border-color: var(--accent);
+        transform: scale(1);
+      }
+      35%, 38% {
+        background: var(--accent-hover);
+        border-color: var(--accent-hover);
+        transform: scale(1.02);
+      }
+      40% {
+        background: var(--accent);
+        border-color: var(--accent);
+        transform: scale(1);
+      }
+      100% {
+        background: var(--accent);
+        border-color: var(--accent);
+        transform: scale(1);
+      }
+    }
+
+    /* Toolbar copy button highlight */
+    @keyframes copy-highlight {
+      0%, 48% {
+        background: transparent;
+      }
+      50%, 55% {
+        background: var(--accent-light);
+      }
+      57% {
+        background: transparent;
+      }
+      100% {
+        background: transparent;
+      }
+    }
+
+    /* Scope count - show 0 initially, hide after annotation */
+    @keyframes count-zero {
+      0%, 37% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      38% {
+        opacity: 1;
+        transform: scale(1.3);
+      }
+      39% {
+        opacity: 0;
+        transform: scale(0);
+      }
+      100% {
+        opacity: 0;
+      }
+    }
+
+    /* Scope count - hidden initially, show 1 after annotation */
+    @keyframes count-one {
+      0%, 38% {
+        opacity: 0;
+        transform: scale(0);
+      }
+      39% {
+        opacity: 1;
+        transform: scale(1.3);
+      }
+      41%, 56% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      58% {
+        opacity: 0;
+        transform: scale(0);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(0);
+      }
+    }
+
+    /* Toast animation */
+    @keyframes toast-show {
+      0%, 52% {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      54% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      56% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      58% {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      100% {
+        opacity: 0;
+      }
+    }
+
+    /* Phase labels - adjusted for 8s with Phase 4 */
+    @keyframes label1 {
+      0% { opacity: 0; }
+      2% { opacity: 1; }
+      15% { opacity: 1; }
+      17% { opacity: 0; }
+      100% { opacity: 0; }
+    }
+
+    @keyframes label2 {
+      0%, 17% { opacity: 0; }
+      19% { opacity: 1; }
+      38% { opacity: 1; }
+      40% { opacity: 0; }
+      100% { opacity: 0; }
+    }
+
+    @keyframes label3 {
+      0%, 40% { opacity: 0; }
+      42% { opacity: 1; }
+      56% { opacity: 1; }
+      58% { opacity: 0; }
+      100% { opacity: 0; }
+    }
+
+    @keyframes label4 {
+      0%, 58% { opacity: 0; }
+      60% { opacity: 1; }
+      92% { opacity: 1; }
+      95% { opacity: 0; }
+      100% { opacity: 0; }
+    }
+
+    /* Output overlay animation */
+    @keyframes output-show {
+      0%, 58% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.9);
+      }
+      62% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      92% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      96% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.95);
+      }
+      100% {
+        opacity: 0;
+      }
+    }
+
+    /* Fade background elements during Phase 4 */
+    @keyframes fade-for-output {
+      0%, 56% {
+        opacity: 1;
+      }
+      60%, 92% {
+        opacity: 0.15;
+      }
+      96% {
+        opacity: 1;
+      }
+      100% {
+        opacity: 1;
+      }
+    }
+
+    /* Apply animations (8s duration) */
+    .cursor {
+      animation: cursor-move 8s infinite var(--smooth);
+    }
+
+    .target-button {
+      animation: button-highlight 8s infinite var(--smooth);
+    }
+
+    .marker {
+      left: 230px;
+      top: 244px;
+      animation: marker-enter 8s infinite var(--bounce);
+    }
+
+    .popup {
+      left: 290px;
+      top: 180px;
+      animation: popup-show 8s infinite var(--smooth);
+    }
+
+    .typing-text {
+      animation: typing 8s infinite steps(16);
+    }
+
+    .popup-btn.primary {
+      animation: btn-highlight 8s infinite var(--smooth);
+    }
+
+    .toolbar-btn.copy-btn {
+      animation: copy-highlight 8s infinite var(--smooth);
+    }
+
+    .scope-count .count-0 {
+      animation: count-zero 8s infinite var(--smooth);
+    }
+
+    .scope-count .count-1 {
+      animation: count-one 8s infinite var(--smooth);
+    }
+
+    .toast {
+      animation: toast-show 8s infinite var(--smooth);
+    }
+
+    .phase-label.p1 {
+      animation: label1 8s infinite var(--smooth);
+    }
+
+    .phase-label.p2 {
+      animation: label2 8s infinite var(--smooth);
+    }
+
+    .phase-label.p3 {
+      animation: label3 8s infinite var(--smooth);
+    }
+
+    .phase-label.p4 {
+      animation: label4 8s infinite var(--smooth);
+    }
+
+    .output-overlay {
+      animation: output-show 8s infinite var(--smooth);
+    }
+
+    .browser {
+      animation: fade-for-output 8s infinite var(--smooth);
+    }
+
+    .toolbar {
+      animation: fade-for-output 8s infinite var(--smooth);
+    }
+  </style>
+</head>
+<body>
+  <!-- Phase Labels -->
+  <div class="phase-label p1">1. Click</div>
+  <div class="phase-label p2">2. Annotate</div>
+  <div class="phase-label p3">3. Copy</div>
+  <div class="phase-label p4">4. Output</div>
+
+  <!-- Watermark -->
+  <div class="watermark">
+    <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <circle cx="12" cy="12" r="6"/>
+      <circle cx="12" cy="12" r="2"/>
+    </svg>
+    npmjs.com/agent-ui-annotation
+  </div>
+
+  <!-- Browser skeleton -->
+  <div class="browser">
+    <div class="browser-header">
+      <div class="browser-dot"></div>
+      <div class="browser-dot"></div>
+      <div class="browser-dot"></div>
+    </div>
+    <div class="browser-content">
+      <div class="page-header"></div>
+      <div class="page-card">
+        <div class="page-line medium"></div>
+        <div class="page-line"></div>
+        <div class="page-line short"></div>
+        <div class="target-button">Save Changes</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cursor -->
+  <div class="cursor">
+    <svg viewBox="0 0 24 24" fill="none">
+      <path d="M4 4L11 21L13 13L21 11L4 4Z" fill="#1a1a1a" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>
+  </div>
+
+  <!-- Marker -->
+  <div class="marker">1</div>
+
+  <!-- Popup -->
+  <div class="popup">
+    <div class="popup-header">
+      <div>
+        <div class="popup-element">button "Save Changes"</div>
+        <div class="popup-path">.page-card &gt; button</div>
+      </div>
+      <div class="popup-close"></div>
+    </div>
+    <div class="popup-textarea">
+      <span class="typing-text">Make button blue</span>
+    </div>
+    <div class="popup-footer">
+      <div class="popup-btn">Cancel</div>
+      <div class="popup-btn primary">Add Annotation</div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-btn">
+      <!-- Freeze icon -->
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07"/>
+      </svg>
+    </div>
+    <div class="toolbar-separator"></div>
+    <div class="scope-count">
+      <!-- Scope icon -->
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/>
+        <circle cx="12" cy="12" r="6"/>
+        <circle cx="12" cy="12" r="2"/>
+      </svg>
+      <span class="count-wrap">
+        <span class="count-0">0</span>
+        <span class="count-1">1</span>
+      </span>
+    </div>
+    <div class="toolbar-separator"></div>
+    <div class="toolbar-btn copy-btn">
+      <!-- Copy icon -->
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+      </svg>
+    </div>
+    <div class="toolbar-btn">
+      <!-- Trash icon -->
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="3 6 5 6 21 6"/>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast">Copied to clipboard!</div>
+
+  <!-- Output Overlay (Phase 4) -->
+  <div class="output-overlay">
+    <div class="output-header">
+      <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      <span class="output-title">Copied to Clipboard</span>
+      <span class="output-badge">Markdown</span>
+    </div>
+    <div class="output-content"><span class="md-h2">## UI Annotations</span>
+
+<span class="md-h3">### 1. button "Save Changes"</span>
+<span class="md-muted">Path:</span> .page-card > button
+<span class="md-muted">Feedback:</span> <span class="md-comment">Make button blue</span></div>
+  </div>
+</body>
+</html>

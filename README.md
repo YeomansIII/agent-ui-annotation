@@ -6,6 +6,10 @@
 
 **[Live Demo](https://yeomansiii.github.io/agent-ui-annotation/)**
 
+<p align="center">
+  <img src="demo/workflow.gif" alt="agent-ui-annotation workflow: Click, Annotate, Copy, Output" width="760">
+</p>
+
 A web page annotation toolbar for AI coding agents. Click on elements, add notes, and export structured markdown that helps AI assistants locate and modify specific UI components.
 
 ## Overview
