@@ -58,6 +58,9 @@ export class AnnotationElement extends HTMLElement {
   // Track which marker tooltip has animated (to prevent re-animation)
   private animatedMarkerTooltipId: string | null = null;
 
+  // Bound resize handler for cleanup in disconnectedCallback
+  private boundHandleResize = () => this.handleWindowResize();
+
   // Track last rendered settings to avoid unnecessary re-renders when settings panel is open
   private lastRenderedSettings: string | null = null;
 
@@ -114,6 +117,8 @@ export class AnnotationElement extends HTMLElement {
       this.unsubscribe();
       this.unsubscribe = null;
     }
+
+    window.removeEventListener('resize', this.boundHandleResize);
 
     if (this.core) {
       this.core.destroy();
@@ -235,6 +240,12 @@ export class AnnotationElement extends HTMLElement {
 
     // Close settings panel when clicking outside
     document.addEventListener('click', this.handleDocumentClick.bind(this));
+    window.addEventListener('resize', this.boundHandleResize);
+  }
+
+  private handleWindowResize() {
+    if (!this.core) return;
+    this.positionToolbar(this.core.store.getState());
   }
 
   private handleDocumentClick(event: Event) {
@@ -484,6 +495,12 @@ export class AnnotationElement extends HTMLElement {
     const settings = state.settings;
     const scopes = Array.from(state.scopes.values()).sort((a, b) => a.number - b.number);
     const resolvedTheme = resolveTheme(settings.theme);
+
+    // When composing (IME input like Chinese), skip re-renders to prevent popup from being destroyed
+    // This prevents the textarea from losing focus and breaking IME composition
+    if (this.isComposing && state.popupVisible) {
+      return;
+    }
 
     // When settings panel is open, skip re-renders unless settings/visibility actually changed
     // This prevents the dropdown from closing when DOM is rebuilt
