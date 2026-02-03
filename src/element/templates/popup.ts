@@ -1,14 +1,14 @@
 /**
- * Popup template for scope creation/editing
+ * Popup template for annotation creation/editing
  */
 
-import type { Scope, ElementInfo } from '../../core/types';
+import type { Annotation, ElementInfo } from '../../core/types';
 import { t } from '../../core/i18n';
 import { icons } from './toolbar';
 
 export interface PopupRenderOptions {
   elementInfo: ElementInfo | null;
-  existingScope: Scope | null;
+  existingAnnotation: Annotation | null;
   isShaking: boolean;
   clickX: number;
   clickY: number;
@@ -61,16 +61,16 @@ function calculatePopupPosition(clickX: number, clickY: number): { left: string;
  * Render the popup as a popover near the click point
  */
 export function renderPopup(options: PopupRenderOptions): string {
-  const { elementInfo, existingScope, isShaking, clickX, clickY, multiSelectInfos = [] } = options;
+  const { elementInfo, existingAnnotation, isShaking, clickX, clickY, multiSelectInfos = [] } = options;
 
-  if (!elementInfo && !existingScope) {
+  if (!elementInfo && !existingAnnotation) {
     return '';
   }
 
   const isMultiSelect = multiSelectInfos.length > 1;
-  const info = existingScope?.elementInfo || elementInfo!;
-  const comment = existingScope?.comment || '';
-  const isEditing = !!existingScope;
+  const info = existingAnnotation?.elementInfo || elementInfo!;
+  const comment = existingAnnotation?.comment || '';
+  const isEditing = !!existingAnnotation;
 
   const position = calculatePopupPosition(clickX, clickY);
 
@@ -126,7 +126,7 @@ export function renderPopup(options: PopupRenderOptions): string {
           ${t('popup.cancel')}
         </button>
         <button class="popup-btn primary" data-action="popup-submit">
-          ${isEditing ? t('popup.save') : isMultiSelect ? t('popup.addScopes', { count: multiSelectInfos.length }) : t('popup.addScope')}
+          ${isEditing ? t('popup.save') : isMultiSelect ? t('popup.addAnnotations', { count: multiSelectInfos.length }) : t('popup.addAnnotation')}
         </button>
       </div>
     </div>

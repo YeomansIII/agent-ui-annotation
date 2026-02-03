@@ -3,7 +3,7 @@
 -->
 <script lang="ts">
 import { onMount } from 'svelte';
-import type { Annotation, AnnotationId, OutputLevel, ThemeMode } from '../../core/types';
+import type { Annotation, AnnotationId, OutputLevel, ThemeMode, BeforeAnnotationCreateHook } from '../../core/types';
 import { registerAnnotationElement, type AnnotationElement } from '../../element/annotation-element';
 
 interface Props {
@@ -15,6 +15,8 @@ interface Props {
   annotationColor?: string;
   /** Whether the tool is disabled */
   disabled?: boolean;
+  /** Hook called before creating an annotation - can add context, modify comment, or cancel */
+  onBeforeAnnotationCreate?: BeforeAnnotationCreateHook;
   /** Callback when annotation is created */
   onAnnotationCreate?: (annotation: Annotation) => void;
   /** Callback when annotation is updated */
@@ -32,6 +34,7 @@ let {
   outputLevel = 'standard',
   annotationColor,
   disabled = false,
+  onBeforeAnnotationCreate,
   onAnnotationCreate,
   onAnnotationUpdate,
   onAnnotationDelete,
@@ -74,7 +77,12 @@ onMount(() => {
   const element = elementRef;
   if (!element) return;
 
-  element.addEventListener('annotation:scope', handleCreate);
+  // Set the before create hook if provided
+  if (onBeforeAnnotationCreate) {
+    element.setBeforeCreateHook(onBeforeAnnotationCreate);
+  }
+
+  element.addEventListener('annotation:create', handleCreate);
   element.addEventListener('annotation:update', handleUpdate);
   element.addEventListener('annotation:delete', handleDelete);
   element.addEventListener('annotation:clear', handleClear);
@@ -87,10 +95,17 @@ onMount(() => {
         elementRef.deactivate();
       }
     });
+
+    // Watch onBeforeAnnotationCreate prop changes
+    $effect(() => {
+      if (elementRef) {
+        elementRef.setBeforeCreateHook(onBeforeAnnotationCreate ?? null);
+      }
+    });
   });
 
   return () => {
-    element.removeEventListener('annotation:scope', handleCreate);
+    element.removeEventListener('annotation:create', handleCreate);
     element.removeEventListener('annotation:update', handleUpdate);
     element.removeEventListener('annotation:delete', handleDelete);
     element.removeEventListener('annotation:clear', handleClear);

@@ -2,7 +2,7 @@
  * Vanilla JS adapter for Annotation
  */
 
-import type { Scope, AnnotationId, OutputLevel, ThemeMode, Settings, PartialTranslationStrings } from '../../core/types';
+import type { Annotation, AnnotationId, OutputLevel, ThemeMode, Settings, PartialTranslationStrings, BeforeAnnotationCreateHook, BeforeAnnotationCreateData, BeforeAnnotationCreateResult } from '../../core/types';
 import {
   AnnotationElement,
   registerAnnotationElement,
@@ -19,18 +19,20 @@ export interface AnnotationOptions {
   theme?: ThemeMode;
   /** Output detail level */
   outputLevel?: OutputLevel;
-  /** Scope marker color */
-  scopeColor?: string;
+  /** Annotation marker color */
+  annotationColor?: string;
   /** Whether to auto-activate on mount */
   autoActivate?: boolean;
-  /** Callback when a scope is created */
-  onScopeCreate?: (scope: Scope) => void;
-  /** Callback when a scope is updated */
-  onScopeUpdate?: (scope: Scope) => void;
-  /** Callback when a scope is deleted */
-  onScopeDelete?: (id: AnnotationId) => void;
-  /** Callback when all scopes are cleared */
-  onScopesClear?: (scopes: Scope[]) => void;
+  /** Hook called before creating an annotation - can add context, modify comment, or cancel */
+  onBeforeAnnotationCreate?: BeforeAnnotationCreateHook;
+  /** Callback when an annotation is created */
+  onAnnotationCreate?: (annotation: Annotation) => void;
+  /** Callback when an annotation is updated */
+  onAnnotationUpdate?: (annotation: Annotation) => void;
+  /** Callback when an annotation is deleted */
+  onAnnotationDelete?: (id: AnnotationId) => void;
+  /** Callback when all annotations are cleared */
+  onAnnotationsClear?: (annotations: Annotation[]) => void;
   /** Callback when output is copied */
   onCopy?: (content: string, level: OutputLevel) => void;
   /** Locale for UI strings (default: 'en') */
@@ -54,7 +56,7 @@ export interface AnnotationInstance {
   copyOutput: (level?: OutputLevel) => Promise<boolean>;
   /** Get output without copying */
   getOutput: (level?: OutputLevel) => string;
-  /** Clear all scopes */
+  /** Clear all annotations */
   clearAll: () => void;
   /** Destroy and remove the element */
   destroy: () => void;
@@ -67,13 +69,13 @@ export interface AnnotationInstance {
  * ```js
  * import { createAnnotation } from 'annotation/vanilla';
  *
- * const scope = createAnnotation({
+ * const instance = createAnnotation({
  *   theme: 'auto',
- *   onScopeCreate: (scope) => console.log('Created:', scope),
+ *   onAnnotationCreate: (annotation) => console.log('Created:', annotation),
  * });
  *
  * // Later:
- * scope.activate();
+ * instance.activate();
  * ```
  */
 export function createAnnotation(options: AnnotationOptions = {}): AnnotationInstance {
@@ -81,12 +83,13 @@ export function createAnnotation(options: AnnotationOptions = {}): AnnotationIns
     container = document.body,
     theme = 'auto',
     outputLevel = 'standard',
-    scopeColor,
+    annotationColor,
     autoActivate = false,
-    onScopeCreate,
-    onScopeUpdate,
-    onScopeDelete,
-    onScopesClear,
+    onBeforeAnnotationCreate,
+    onAnnotationCreate,
+    onAnnotationUpdate,
+    onAnnotationDelete,
+    onAnnotationsClear,
     onCopy,
     locale,
     translations,
@@ -101,35 +104,40 @@ export function createAnnotation(options: AnnotationOptions = {}): AnnotationIns
   // Create element
   const element = document.createElement('agent-ui-annotation') as AnnotationElement;
 
+  // Set the before create hook if provided (must be set before connectedCallback)
+  if (onBeforeAnnotationCreate) {
+    element.setBeforeCreateHook(onBeforeAnnotationCreate);
+  }
+
   // Set attributes
   element.setAttribute('theme', theme);
   element.setAttribute('output-level', outputLevel);
-  if (scopeColor) {
-    element.setAttribute('scope-color', scopeColor);
+  if (annotationColor) {
+    element.setAttribute('annotation-color', annotationColor);
   }
 
   // Add event listeners
-  if (onScopeCreate) {
-    element.addEventListener('annotation:scope', ((e: CustomEvent) => {
-      onScopeCreate(e.detail.scope);
+  if (onAnnotationCreate) {
+    element.addEventListener('annotation:create', ((e: CustomEvent) => {
+      onAnnotationCreate(e.detail.annotation);
     }) as EventListener);
   }
 
-  if (onScopeUpdate) {
+  if (onAnnotationUpdate) {
     element.addEventListener('annotation:update', ((e: CustomEvent) => {
-      onScopeUpdate(e.detail.scope);
+      onAnnotationUpdate(e.detail.annotation);
     }) as EventListener);
   }
 
-  if (onScopeDelete) {
+  if (onAnnotationDelete) {
     element.addEventListener('annotation:delete', ((e: CustomEvent) => {
-      onScopeDelete(e.detail.id);
+      onAnnotationDelete(e.detail.id);
     }) as EventListener);
   }
 
-  if (onScopesClear) {
+  if (onAnnotationsClear) {
     element.addEventListener('annotation:clear', ((e: CustomEvent) => {
-      onScopesClear(e.detail.scopes);
+      onAnnotationsClear(e.detail.annotations);
     }) as EventListener);
   }
 
@@ -190,7 +198,7 @@ export function createAnnotation(options: AnnotationOptions = {}): AnnotationIns
  * ```js
  * import { init } from 'annotation/vanilla';
  *
- * const scope = init(); // Creates and activates immediately
+ * const instance = init(); // Creates and activates immediately
  * ```
  */
 export function init(options: Omit<AnnotationOptions, 'autoActivate'> = {}): AnnotationInstance {
@@ -198,6 +206,6 @@ export function init(options: Omit<AnnotationOptions, 'autoActivate'> = {}): Ann
 }
 
 // Re-export types and i18n
-export type { Scope, AnnotationId, OutputLevel, ThemeMode, Settings, PartialTranslationStrings };
+export type { Annotation, AnnotationId, OutputLevel, ThemeMode, Settings, PartialTranslationStrings, BeforeAnnotationCreateHook, BeforeAnnotationCreateData, BeforeAnnotationCreateResult };
 export { AnnotationElement, registerAnnotationElement };
 export { initI18n } from '../../core/i18n';

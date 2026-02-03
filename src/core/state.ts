@@ -11,9 +11,9 @@ export const DEFAULT_SETTINGS: Settings = {
   toolbarPosition: 'bottom-right',
   showTooltips: true,
   showMarkerNumbers: true,
-  freezeOnScope: false,
-  persistScopes: true,
-  scopeColor: '#AF52DE', // purple
+  freezeOnAnnotation: false,
+  persistAnnotations: true,
+  annotationColor: '#AF52DE', // purple
   blockInteractions: true,
   autoClearAfterCopy: false,
 };
@@ -27,7 +27,7 @@ export const DEFAULT_TOOLBAR_POSITION: Position = {
 /** Create initial state */
 export function createInitialState(overrides?: Partial<AppState>): AppState {
   return {
-    scopes: new Map(),
+    annotations: new Map(),
     selectedAnnotationId: null,
     hoveredElement: null,
     hoveredElementInfo: null,
@@ -66,13 +66,13 @@ export function createInitialState(overrides?: Partial<AppState>): AppState {
 
 /** State selectors */
 export const selectors = {
-  getScopes: (state: AppState) => state.scopes,
-  getScopeById: (state: AppState, id: AnnotationId) => state.scopes.get(id),
-  getScopeCount: (state: AppState) => state.scopes.size,
-  getScopesArray: (state: AppState) =>
-    Array.from(state.scopes.values()).sort((a, b) => a.number - b.number),
-  getSelectedScope: (state: AppState) =>
-    state.selectedAnnotationId ? state.scopes.get(state.selectedAnnotationId) : null,
+  getAnnotations: (state: AppState) => state.annotations,
+  getAnnotationById: (state: AppState, id: AnnotationId) => state.annotations.get(id),
+  getAnnotationCount: (state: AppState) => state.annotations.size,
+  getAnnotationsArray: (state: AppState) =>
+    Array.from(state.annotations.values()).sort((a, b) => a.number - b.number),
+  getSelectedAnnotation: (state: AppState) =>
+    state.selectedAnnotationId ? state.annotations.get(state.selectedAnnotationId) : null,
   isActive: (state: AppState) => state.mode !== 'disabled',
   isMultiSelectMode: (state: AppState) => state.mode === 'multi-select',
   getSettings: (state: AppState) => state.settings,

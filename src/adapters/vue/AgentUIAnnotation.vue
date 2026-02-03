@@ -4,7 +4,7 @@
  */
 
 import { ref, onMounted, onUnmounted, watch } from 'vue';
-import type { Annotation, AnnotationId, OutputLevel, ThemeMode } from '../../core/types';
+import type { Annotation, AnnotationId, OutputLevel, ThemeMode, BeforeAnnotationCreateHook } from '../../core/types';
 import { registerAnnotationElement, type AnnotationElement } from '../../element/annotation-element';
 import type { AgentUIAnnotationExpose } from './types';
 
@@ -20,6 +20,8 @@ const props = withDefaults(defineProps<{
   annotationColor?: string;
   /** Whether the tool is disabled */
   disabled?: boolean;
+  /** Hook called before creating an annotation - can add context, modify comment, or cancel */
+  onBeforeAnnotationCreate?: BeforeAnnotationCreateHook;
 }>(), {
   theme: 'auto',
   outputLevel: 'standard',
@@ -66,7 +68,12 @@ onMounted(() => {
   const element = elementRef.value;
   if (!element) return;
 
-  element.addEventListener('annotation:scope', handleCreate);
+  // Set the before create hook if provided
+  if (props.onBeforeAnnotationCreate) {
+    element.setBeforeCreateHook(props.onBeforeAnnotationCreate);
+  }
+
+  element.addEventListener('annotation:create', handleCreate);
   element.addEventListener('annotation:update', handleUpdate);
   element.addEventListener('annotation:delete', handleDelete);
   element.addEventListener('annotation:clear', handleClear);
@@ -77,7 +84,7 @@ onUnmounted(() => {
   const element = elementRef.value;
   if (!element) return;
 
-  element.removeEventListener('annotation:scope', handleCreate);
+  element.removeEventListener('annotation:create', handleCreate);
   element.removeEventListener('annotation:update', handleUpdate);
   element.removeEventListener('annotation:delete', handleDelete);
   element.removeEventListener('annotation:clear', handleClear);
@@ -88,6 +95,13 @@ onUnmounted(() => {
 watch(() => props.disabled, (newValue) => {
   if (newValue && elementRef.value) {
     elementRef.value.deactivate();
+  }
+});
+
+// Watch onBeforeAnnotationCreate prop
+watch(() => props.onBeforeAnnotationCreate, (newValue) => {
+  if (elementRef.value) {
+    elementRef.value.setBeforeCreateHook(newValue ?? null);
   }
 });
 

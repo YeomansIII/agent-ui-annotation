@@ -2,7 +2,7 @@
  * Vue 3 adapter types for agent-ui-annotation
  */
 
-import type { Annotation, AnnotationId, OutputLevel, ThemeMode } from '../../core/types';
+import type { Annotation, AnnotationId, OutputLevel, ThemeMode, BeforeAnnotationCreateHook, BeforeAnnotationCreateData, BeforeAnnotationCreateResult } from '../../core/types';
 
 /** Props for the AgentUIAnnotation Vue component */
 export interface AgentUIAnnotationProps {
@@ -14,7 +14,12 @@ export interface AgentUIAnnotationProps {
   annotationColor?: string;
   /** Whether the tool is disabled */
   disabled?: boolean;
+  /** Hook called before creating an annotation - can add context, modify comment, or cancel */
+  onBeforeAnnotationCreate?: BeforeAnnotationCreateHook;
 }
+
+// Re-export hook types for convenience
+export type { BeforeAnnotationCreateHook, BeforeAnnotationCreateData, BeforeAnnotationCreateResult };
 
 /** Methods exposed via defineExpose */
 export interface AgentUIAnnotationExpose {

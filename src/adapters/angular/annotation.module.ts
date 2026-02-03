@@ -32,7 +32,7 @@
  * 3. Access element in component:
  * ```typescript
  * import { ViewChild, ElementRef } from '@angular/core';
- * import type { AnnotationElement } from 'agent-ui-annotation';
+ * import type { AnnotationElement, BeforeAnnotationCreateHook } from 'agent-ui-annotation';
  *
  * @Component({ ... })
  * export class AppComponent {
@@ -40,6 +40,16 @@
  *
  *   activate() {
  *     this.annotationRef.nativeElement.activate();
+ *   }
+ *
+ *   // Set up the before create hook to add custom context
+ *   ngAfterViewInit() {
+ *     this.annotationRef.nativeElement.setBeforeCreateHook((data) => ({
+ *       context: {
+ *         route: window.location.pathname,
+ *         timestamp: new Date().toISOString(),
+ *       },
+ *     }));
  *   }
  * }
  * ```
@@ -52,7 +62,7 @@ import { initI18n, type I18nOptions } from '../../core/i18n';
 registerAnnotationElement();
 
 // Re-export types for Angular templates
-export type { Annotation, AnnotationId, OutputLevel, ThemeMode, Settings, PartialTranslationStrings, I18nOptions } from '../../core/types';
+export type { Annotation, AnnotationId, OutputLevel, ThemeMode, Settings, PartialTranslationStrings, I18nOptions, BeforeAnnotationCreateHook, BeforeAnnotationCreateData, BeforeAnnotationCreateResult } from '../../core/types';
 export { AnnotationElement } from '../../element/annotation-element';
 export { initI18n } from '../../core/i18n';
 

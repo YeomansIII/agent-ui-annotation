@@ -2,11 +2,11 @@
  * Marker template
  */
 
-import type { Scope } from '../../core/types';
+import type { Annotation } from '../../core/types';
 import { t } from '../../core/i18n';
 
 export interface MarkerRenderOptions {
-  scope: Scope;
+  annotation: Annotation;
   isHovered: boolean;
   isExiting: boolean;
   isAnimating: boolean;
@@ -26,10 +26,10 @@ export interface MarkerRenderOptions {
  * - Fixed elements: use stored coords directly (CSS position: fixed)
  * - Non-fixed elements: subtract current scroll to get viewport position
  */
-function getMarkerPosition(scope: Scope, scrollY: number): { x: number; y: number; isFixed: boolean } {
-  const isFixed = scope.elementInfo.isFixed;
-  const x = scope.clickX;
-  const y = scope.clickY;
+function getMarkerPosition(annotation: Annotation, scrollY: number): { x: number; y: number; isFixed: boolean } {
+  const isFixed = annotation.elementInfo.isFixed;
+  const x = annotation.clickX;
+  const y = annotation.clickY;
 
   if (isFixed) {
     // Fixed elements: coords are viewport-relative, use directly
@@ -44,9 +44,9 @@ function getMarkerPosition(scope: Scope, scrollY: number): { x: number; y: numbe
  * Render a single marker
  */
 export function renderMarker(options: MarkerRenderOptions): string {
-  const { scope, isHovered, isExiting, isAnimating, scrollY, accentColor, skipTooltipAnimation = false } = options;
+  const { annotation, isHovered, isExiting, isAnimating, scrollY, accentColor, skipTooltipAnimation = false } = options;
 
-  const pos = getMarkerPosition(scope, scrollY);
+  const pos = getMarkerPosition(annotation, scrollY);
 
   const classes = [
     'marker',
@@ -68,11 +68,11 @@ export function renderMarker(options: MarkerRenderOptions): string {
       class="${classes}"
       style="${style}"
       data-annotation-marker
-      data-scope-id="${scope.id}"
-      title="${scope.elementInfo.humanReadable}"
+      data-annotation-id="${annotation.id}"
+      title="${annotation.elementInfo.humanReadable}"
     >
-      ${scope.number}
-      ${isHovered ? renderMarkerTooltip(scope, skipTooltipAnimation) : ''}
+      ${annotation.number}
+      ${isHovered ? renderMarkerTooltip(annotation, skipTooltipAnimation) : ''}
     </div>
   `;
 }
@@ -80,12 +80,12 @@ export function renderMarker(options: MarkerRenderOptions): string {
 /**
  * Render marker tooltip
  */
-function renderMarkerTooltip(scope: Scope, skipAnimation: boolean): string {
-  const element = scope.elementInfo.humanReadable;
-  const comment = scope.comment
-    ? scope.comment.length > 100
-      ? scope.comment.slice(0, 100) + '...'
-      : scope.comment
+function renderMarkerTooltip(annotation: Annotation, skipAnimation: boolean): string {
+  const element = annotation.elementInfo.humanReadable;
+  const comment = annotation.comment
+    ? annotation.comment.length > 100
+      ? annotation.comment.slice(0, 100) + '...'
+      : annotation.comment
     : t('marker.noComment');
 
   return `
@@ -103,7 +103,7 @@ export interface PendingMarker {
 }
 
 /**
- * Render a pending marker (shown while popup is open before scope is created)
+ * Render a pending marker (shown while popup is open before annotation is created)
  */
 function renderPendingMarker(pending: PendingMarker, scrollY: number, accentColor: string, nextNumber: number): string {
   const x = pending.x;
@@ -132,7 +132,7 @@ function renderPendingMarker(pending: PendingMarker, scrollY: number, accentColo
  * Render all markers
  */
 export function renderMarkers(options: {
-  scopes: Scope[];
+  annotations: Annotation[];
   hoveredMarkerId: string | null;
   exitingMarkers: Set<string>;
   animatingMarkers: Set<string>;
@@ -142,15 +142,15 @@ export function renderMarkers(options: {
   pendingMarkers?: PendingMarker[];
   skipTooltipAnimation?: boolean;
 }): string {
-  const { scopes, hoveredMarkerId, exitingMarkers, animatingMarkers, scrollY, accentColor, pendingMarker, pendingMarkers = [], skipTooltipAnimation = false } = options;
+  const { annotations, hoveredMarkerId, exitingMarkers, animatingMarkers, scrollY, accentColor, pendingMarker, pendingMarkers = [], skipTooltipAnimation = false } = options;
 
-  const markerHtml = scopes
-    .map((scope) =>
+  const markerHtml = annotations
+    .map((annotation) =>
       renderMarker({
-        scope,
-        isHovered: scope.id === hoveredMarkerId,
-        isExiting: exitingMarkers.has(scope.id),
-        isAnimating: animatingMarkers.has(scope.id),
+        annotation,
+        isHovered: annotation.id === hoveredMarkerId,
+        isExiting: exitingMarkers.has(annotation.id),
+        isAnimating: animatingMarkers.has(annotation.id),
         scrollY,
         accentColor,
         skipTooltipAnimation,
@@ -158,17 +158,17 @@ export function renderMarkers(options: {
     )
     .join('');
 
-  // Add pending markers if popup is open for new scope(s)
+  // Add pending markers if popup is open for new annotation(s)
   let pendingHtml = '';
 
   if (pendingMarkers.length > 0) {
     // Multi-select: render pending markers for all selected elements
     pendingHtml = pendingMarkers
-      .map((pm, i) => renderPendingMarker(pm, scrollY, accentColor, scopes.length + 1 + i))
+      .map((pm, i) => renderPendingMarker(pm, scrollY, accentColor, annotations.length + 1 + i))
       .join('');
   } else if (pendingMarker) {
     // Single selection: render one pending marker
-    pendingHtml = renderPendingMarker(pendingMarker, scrollY, accentColor, scopes.length + 1);
+    pendingHtml = renderPendingMarker(pendingMarker, scrollY, accentColor, annotations.length + 1);
   }
 
   return `<div class="markers">${markerHtml}${pendingHtml}</div>`;

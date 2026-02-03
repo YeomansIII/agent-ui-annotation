@@ -2,7 +2,7 @@
  * Core controller - ties together all core functionality
  */
 
-import type { AppState, Annotation, AnnotationId, Settings, ToolMode, OutputLevel, EventMap } from './types';
+import type { AppState, Annotation, AnnotationId, Settings, ToolMode, OutputLevel, EventMap, BeforeAnnotationCreateHook } from './types';
 import { createStore, type Store } from './store';
 import { createEventBus, type EventBus } from './event-bus';
 import { createInitialState, DEFAULT_SETTINGS } from './state';
@@ -31,6 +31,8 @@ export interface AnnotationCoreOptions {
   settings?: Partial<Settings>;
   /** Whether to load persisted annotations */
   loadPersisted?: boolean;
+  /** Hook called before creating an annotation - can add context, modify comment, or cancel */
+  onBeforeAnnotationCreate?: BeforeAnnotationCreateHook;
   /** Callback when an annotation is created */
   onAnnotationCreate?: (annotation: Annotation) => void;
   /** Callback when an annotation is updated */
@@ -98,6 +100,7 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
   const {
     settings: initialSettings,
     loadPersisted = true,
+    onBeforeAnnotationCreate,
     onAnnotationCreate,
     onAnnotationUpdate,
     onAnnotationDelete,
@@ -129,7 +132,9 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
   const eventBus = createEventBus<EventMap>();
 
   // Create managers
-  const annotationManager = createAnnotationManager(store, eventBus);
+  const annotationManager = createAnnotationManager(store, eventBus, {
+    onBeforeAnnotationCreate,
+  });
   const freezeManager = createFreezeManager(store, eventBus);
   const eventHandlers = createEventHandlers(store, eventBus);
   const hoverDetection = createHoverDetection(store, eventBus);

@@ -64,6 +64,11 @@ export {
   type AnnotationColor,
   ANNOTATION_COLORS,
 
+  // Hook types
+  type BeforeAnnotationCreateData,
+  type BeforeAnnotationCreateResult,
+  type BeforeAnnotationCreateHook,
+
   // Controller
   createAnnotationCore,
   type AnnotationCore,

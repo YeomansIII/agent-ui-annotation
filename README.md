@@ -46,6 +46,13 @@ import { createAnnotation } from 'agent-ui-annotation';
 
 const annotation = createAnnotation({
   theme: 'auto',
+  // Add custom context to every annotation
+  onBeforeAnnotationCreate: (data) => ({
+    context: {
+      route: window.location.pathname,
+      timestamp: new Date().toISOString(),
+    },
+  }),
   onAnnotationCreate: (annotation) => console.log('Created:', annotation),
   onCopy: (markdown) => console.log('Copied:', markdown),
 });
@@ -74,6 +81,9 @@ function App() {
     <AgentUIAnnotation
       theme="auto"
       outputLevel="standard"
+      onBeforeAnnotationCreate={(data) => ({
+        context: { route: window.location.pathname },
+      })}
       onAnnotationCreate={(annotation) => console.log('Created:', annotation)}
       onCopy={(markdown) => console.log('Copied:', markdown)}
     />
@@ -86,9 +96,13 @@ function App() {
 ```vue
 <script setup lang="ts">
 import { AgentUIAnnotation, useAgentUIAnnotation } from 'agent-ui-annotation/vue';
-import type { Annotation } from 'agent-ui-annotation/vue';
+import type { Annotation, BeforeAnnotationCreateResult } from 'agent-ui-annotation/vue';
 
 const { ref: annotationRef, activate, copyOutput } = useAgentUIAnnotation();
+
+function handleBeforeCreate(): BeforeAnnotationCreateResult {
+  return { context: { route: window.location.pathname } };
+}
 
 function handleCreate(annotation: Annotation) {
   console.log('Created:', annotation);
@@ -104,6 +118,7 @@ function handleCopy(markdown: string) {
     ref="annotationRef"
     theme="auto"
     output-level="standard"
+    :on-before-annotation-create="handleBeforeCreate"
     @annotation-create="handleCreate"
     @copy="handleCopy"
   />
@@ -117,10 +132,13 @@ function handleCopy(markdown: string) {
 ```svelte
 <script lang="ts">
   import { AgentUIAnnotation } from 'agent-ui-annotation/svelte';
-  import type { Annotation } from 'agent-ui-annotation/svelte';
+  import type { Annotation, BeforeAnnotationCreateResult } from 'agent-ui-annotation/svelte';
 
   let annotation: AgentUIAnnotation;
 
+  const onBeforeAnnotationCreate = (): BeforeAnnotationCreateResult => ({
+    context: { route: window.location.pathname },
+  });
   const onAnnotationCreate = (a: Annotation) => console.log('Created:', a);
   const onCopy = (content: string) => console.log('Copied:', content);
 </script>
@@ -129,6 +147,7 @@ function handleCopy(markdown: string) {
   bind:this={annotation}
   theme="auto"
   outputLevel="standard"
+  {onBeforeAnnotationCreate}
   {onAnnotationCreate}
   {onCopy}
 />
@@ -156,9 +175,16 @@ export class App {
 
   constructor() {
     afterNextRender(() => {
-      this.annotationRef()?.nativeElement.addEventListener('annotation:create', (e: Event) => {
-        console.log('Created:', (e as CustomEvent).detail.annotation);
-      });
+      const element = this.annotationRef()?.nativeElement;
+      if (element) {
+        // Add custom context to annotations
+        element.setBeforeCreateHook((data) => ({
+          context: { route: window.location.pathname },
+        }));
+        element.addEventListener('annotation:create', (e: Event) => {
+          console.log('Created:', (e as CustomEvent).detail.annotation);
+        });
+      }
     });
   }
 
@@ -194,11 +220,49 @@ When active, clicks are blocked from triggering buttons/links while annotating (
 |-------|-------------|
 | Compact | `1. **button "Save"**: Change color to blue` |
 | Standard | Element + path + comment with headers |
-| Detailed | + classes, position, nearby context |
-| Forensic | + full DOM path, computed styles, accessibility info |
+| Detailed | + classes, position, nearby context, custom context |
+| Forensic | + full DOM path, computed styles, accessibility info, custom context |
 
 ### Persistence
 Annotations are saved to localStorage and persist across page reloads (7-day retention).
+
+### Custom Context Hook
+
+The `onBeforeAnnotationCreate` hook lets you inject custom context (route info, user data, app state) into annotations before they're created. You can also modify the comment or cancel annotation creation.
+
+```typescript
+// Add route and user context to every annotation
+const annotation = createAnnotation({
+  onBeforeAnnotationCreate: (data) => ({
+    context: {
+      route: window.location.pathname,
+      params: Object.fromEntries(new URLSearchParams(window.location.search)),
+      userId: getCurrentUserId(),
+      timestamp: new Date().toISOString(),
+    },
+  }),
+});
+
+// Conditionally cancel annotation creation
+const annotation = createAnnotation({
+  onBeforeAnnotationCreate: (data) => {
+    // Don't annotate elements inside specific containers
+    if (data.element.closest('.no-annotate')) {
+      return { cancel: true };
+    }
+    return { context: { route: window.location.pathname } };
+  },
+});
+
+// Modify the comment
+const annotation = createAnnotation({
+  onBeforeAnnotationCreate: (data) => ({
+    comment: `[${window.location.pathname}] ${data.comment}`,
+  }),
+});
+```
+
+The custom context appears in the markdown output at detailed and forensic levels.
 
 ## Internationalization (i18n)
 
@@ -336,12 +400,34 @@ interface AnnotationOptions {
   theme?: 'light' | 'dark' | 'auto';
   outputLevel?: 'compact' | 'standard' | 'detailed' | 'forensic';
   annotationColor?: string;
+  onBeforeAnnotationCreate?: BeforeAnnotationCreateHook; // Hook to add context/modify/cancel
   onAnnotationCreate?: (annotation: Annotation) => void;
   onAnnotationUpdate?: (annotation: Annotation) => void;
   onAnnotationDelete?: (id: string) => void;
   onAnnotationsClear?: (annotations: Annotation[]) => void;
   onCopy?: (content: string, level: OutputLevel) => void;
 }
+
+// Hook types for onBeforeAnnotationCreate
+interface BeforeAnnotationCreateData {
+  element: Element;           // The DOM element being annotated
+  elementInfo: ElementInfo;   // Collected element information
+  comment: string;            // User's comment
+  selectedText: string | null; // Selected text on page (if any)
+  isMultiSelect: boolean;     // Whether part of multi-select batch
+  clickX: number;             // Click X coordinate
+  clickY: number;             // Click Y coordinate
+}
+
+interface BeforeAnnotationCreateResult {
+  context?: Record<string, unknown>; // Custom data to attach
+  comment?: string;                   // Override the comment
+  cancel?: boolean;                   // Set true to cancel creation
+}
+
+type BeforeAnnotationCreateHook = (
+  data: BeforeAnnotationCreateData
+) => BeforeAnnotationCreateResult | Promise<BeforeAnnotationCreateResult> | void | Promise<void>;
 
 // i18n is configured separately via initI18n()
 interface I18nOptions {

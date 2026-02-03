@@ -121,7 +121,42 @@ export interface Annotation {
   offsetX?: number;
   /** Offset as percentage (0-1) from element's top edge at creation time (for resize repositioning) */
   offsetY?: number;
+  /** Custom context data provided by onBeforeAnnotationCreate hook */
+  context?: Record<string, unknown>;
 }
+
+/** Data passed to the onBeforeAnnotationCreate hook */
+export interface BeforeAnnotationCreateData {
+  /** The DOM element being annotated */
+  element: Element;
+  /** Collected element information */
+  elementInfo: ElementInfo;
+  /** User's comment/note */
+  comment: string;
+  /** Text selected on the page at time of annotation (if any) */
+  selectedText: string | null;
+  /** Whether this annotation is part of a multi-select batch */
+  isMultiSelect: boolean;
+  /** Click X coordinate */
+  clickX: number;
+  /** Click Y coordinate */
+  clickY: number;
+}
+
+/** Result from the onBeforeAnnotationCreate hook */
+export interface BeforeAnnotationCreateResult {
+  /** Custom context data to attach to the annotation */
+  context?: Record<string, unknown>;
+  /** Override the comment (optional) */
+  comment?: string;
+  /** Set to true to cancel annotation creation */
+  cancel?: boolean;
+}
+
+/** Hook type for onBeforeAnnotationCreate - supports sync and async */
+export type BeforeAnnotationCreateHook = (
+  data: BeforeAnnotationCreateData
+) => BeforeAnnotationCreateResult | Promise<BeforeAnnotationCreateResult> | void | Promise<void>;
 
 
 /** Output detail level */

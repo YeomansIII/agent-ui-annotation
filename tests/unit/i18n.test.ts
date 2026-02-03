@@ -33,7 +33,7 @@ describe('i18n', () => {
     });
 
     it('interpolates variables', () => {
-      expect(t('popup.addScopes', { count: 5 })).toBe('Add 5 Scopes');
+      expect(t('popup.addAnnotations', { count: 5 })).toBe('Add 5 Annotations');
       expect(t('popup.elementsSelected', { count: 3 })).toBe('3 elements selected');
       expect(t('popup.andMore', { count: 2 })).toBe('...and 2 more');
     });
@@ -43,7 +43,7 @@ describe('i18n', () => {
     });
 
     it('keeps unmatched variables in place', () => {
-      expect(t('popup.addScopes', {})).toBe('Add {{count}} Scopes');
+      expect(t('popup.addAnnotations', {})).toBe('Add {{count}} Annotations');
     });
   });
 
@@ -103,7 +103,7 @@ describe('i18n', () => {
 
     it('interpolates variables in output', () => {
       initI18n({ translateOutput: false });
-      expect(tOutput('popup.addScopes', { count: 3 })).toBe('Add 3 Scopes');
+      expect(tOutput('popup.addAnnotations', { count: 3 })).toBe('Add 3 Annotations');
     });
   });
 
@@ -160,7 +160,7 @@ describe('i18n', () => {
     it('has all required keys in Chinese locale', () => {
       // Check a sampling of keys to ensure completeness
       expect(zhCN.toolbar.activate).toBeDefined();
-      expect(zhCN.popup.addScope).toBeDefined();
+      expect(zhCN.popup.addAnnotation).toBeDefined();
       expect(zhCN.settings.outputLevel).toBeDefined();
       expect(zhCN.colors.purple).toBeDefined();
       expect(zhCN.marker.noComment).toBeDefined();

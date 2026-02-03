@@ -6,7 +6,7 @@ import { t } from '../../core/i18n';
 
 /** SVG Icons */
 export const icons = {
-  scope: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  annotation: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="10"/>
     <circle cx="12" cy="12" r="6"/>
     <circle cx="12" cy="12" r="2"/>
@@ -83,12 +83,12 @@ export const icons = {
 /**
  * Render collapsed toolbar
  */
-export function renderCollapsedToolbar(scopeCount: number): string {
+export function renderCollapsedToolbar(annotationCount: number): string {
   return `
     <div class="toolbar collapsed" data-annotation-toolbar>
       <button class="toolbar-btn toggle-btn" title="${t('toolbar.activate')}" data-action="toggle">
-        ${icons.scope}
-        ${scopeCount > 0 ? `<span class="badge">${scopeCount}</span>` : ''}
+        ${icons.annotation}
+        ${annotationCount > 0 ? `<span class="badge">${annotationCount}</span>` : ''}
       </button>
     </div>
   `;
@@ -98,7 +98,7 @@ export function renderCollapsedToolbar(scopeCount: number): string {
  * Render expanded toolbar
  */
 export function renderExpandedToolbar(options: {
-  scopeCount: number;
+  annotationCount: number;
   isFrozen: boolean;
   markersVisible: boolean;
   isDarkMode: boolean;
@@ -108,7 +108,7 @@ export function renderExpandedToolbar(options: {
   settingsPanelHtml?: string;
 }): string {
   const {
-    scopeCount,
+    annotationCount,
     isFrozen,
     markersVisible,
     isDarkMode,
@@ -134,18 +134,18 @@ export function renderExpandedToolbar(options: {
 
       <div class="separator"></div>
 
-      <div class="scope-count">
-        ${icons.scope}
-        <span class="count">${scopeCount}</span>
+      <div class="annotation-count">
+        ${icons.annotation}
+        <span class="count">${annotationCount}</span>
       </div>
 
       <div class="separator"></div>
 
-      <button class="toolbar-btn" title="${t('toolbar.copyToClipboard')}" data-action="copy" ${scopeCount === 0 ? 'disabled' : ''}>
+      <button class="toolbar-btn" title="${t('toolbar.copyToClipboard')}" data-action="copy" ${annotationCount === 0 ? 'disabled' : ''}>
         ${icons.copy}
       </button>
 
-      <button class="toolbar-btn" title="${t('toolbar.clearAll')}" data-action="clear" ${scopeCount === 0 ? 'disabled' : ''}>
+      <button class="toolbar-btn" title="${t('toolbar.clearAll')}" data-action="clear" ${annotationCount === 0 ? 'disabled' : ''}>
         ${icons.trash}
       </button>
 

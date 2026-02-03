@@ -25,8 +25,8 @@ export interface TranslationStrings {
     cancel: string;
     delete: string;
     save: string;
-    addScope: string;
-    addScopes: string;
+    addAnnotation: string;
+    addAnnotations: string;
     elementsSelected: string;
     andMore: string;
   };
@@ -59,9 +59,9 @@ export interface TranslationStrings {
   };
   output: {
     pageFeedback: string;
-    noScopes: string;
+    noAnnotations: string;
     viewport: string;
-    scopes: string;
+    annotations: string;
     location: string;
     selectedText: string;
     feedback: string;
@@ -99,7 +99,7 @@ export interface TranslationStrings {
     scrollPosition: string;
     timestamp: string;
     userAgent: string;
-    totalScopes: string;
+    totalAnnotations: string;
     positioning: string;
     fixedSticky: string;
     yes: string;

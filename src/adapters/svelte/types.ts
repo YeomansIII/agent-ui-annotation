@@ -2,7 +2,7 @@
  * Svelte 5 adapter types for agent-ui-annotation
  */
 
-import type { Annotation, AnnotationId, OutputLevel, ThemeMode } from '../../core/types';
+import type { Annotation, AnnotationId, OutputLevel, ThemeMode, BeforeAnnotationCreateHook, BeforeAnnotationCreateData, BeforeAnnotationCreateResult } from '../../core/types';
 
 /** Props for the AgentUIAnnotation Svelte component */
 export interface AgentUIAnnotationProps {
@@ -14,6 +14,8 @@ export interface AgentUIAnnotationProps {
   annotationColor?: string;
   /** Whether the tool is disabled */
   disabled?: boolean;
+  /** Hook called before creating an annotation - can add context, modify comment, or cancel */
+  onBeforeAnnotationCreate?: BeforeAnnotationCreateHook;
   /** Callback when annotation is created */
   onAnnotationCreate?: (annotation: Annotation) => void;
   /** Callback when annotation is updated */
@@ -25,6 +27,9 @@ export interface AgentUIAnnotationProps {
   /** Callback when output is copied */
   onCopy?: (content: string, level: OutputLevel) => void;
 }
+
+// Re-export hook types for convenience
+export type { BeforeAnnotationCreateHook, BeforeAnnotationCreateData, BeforeAnnotationCreateResult };
 
 /** Methods exposed via component instance */
 export interface AgentUIAnnotationExpose {

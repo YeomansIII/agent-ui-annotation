@@ -2,7 +2,7 @@
  * Annotation CRUD operations
  */
 
-import type { Annotation, AnnotationId, AppState } from '../types';
+import type { Annotation, AnnotationId, AppState, BeforeAnnotationCreateHook, BeforeAnnotationCreateData, ElementInfo } from '../types';
 import type { Store } from '../store';
 import type { EventBus } from '../event-bus';
 import type { EventMap } from '../types';
@@ -40,6 +40,8 @@ export function createAnnotation(
     clickY?: number;
     offsetX?: number;
     offsetY?: number;
+    context?: Record<string, unknown>;
+    elementInfo?: ElementInfo;
   } = {}
 ): Annotation {
   const {
@@ -50,12 +52,14 @@ export function createAnnotation(
     clickY = 0,
     offsetX,
     offsetY,
+    context,
+    elementInfo: providedElementInfo,
   } = options;
 
   const now = Date.now();
-  const elementInfo = collectElementInfo(element, includeForensic);
+  const elementInfo = providedElementInfo ?? collectElementInfo(element, includeForensic);
 
-  return {
+  const annotation: Annotation = {
     id: generateAnnotationId(),
     number: getNextAnnotationNumber(existingAnnotations),
     comment,
@@ -70,6 +74,12 @@ export function createAnnotation(
     offsetX,
     offsetY,
   };
+
+  if (context !== undefined) {
+    annotation.context = context;
+  }
+
+  return annotation;
 }
 
 /**
@@ -115,17 +125,26 @@ export function renumberAnnotations(annotations: Map<AnnotationId, Annotation>, 
   return newAnnotations;
 }
 
+export interface AnnotationManagerOptions {
+  /** Hook called before creating an annotation */
+  onBeforeAnnotationCreate?: BeforeAnnotationCreateHook;
+}
+
 /**
  * Create annotation manager bound to store and event bus
  */
 export function createAnnotationManager(
   store: Store<AppState>,
-  eventBus: EventBus<EventMap>
+  eventBus: EventBus<EventMap>,
+  options: AnnotationManagerOptions = {}
 ) {
+  const { onBeforeAnnotationCreate } = options;
+
   /**
    * Add a new annotation
+   * @returns The created annotation, or null if creation was cancelled by hook
    */
-  const addAnnotation = (
+  const addAnnotation = async (
     element: Element,
     comment: string,
     options?: {
@@ -135,14 +154,58 @@ export function createAnnotationManager(
       clickY?: number;
       offsetX?: number;
       offsetY?: number;
+      elementInfo?: ElementInfo;
     }
-  ): Annotation => {
+  ): Promise<Annotation | null> => {
     const state = store.getState();
     const includeForensic = state.settings.outputLevel === 'forensic';
+    const elementInfo = options?.elementInfo ?? collectElementInfo(element, includeForensic);
 
-    const annotation = createAnnotation(element, comment, state.annotations, {
+    let finalComment = comment;
+    let context: Record<string, unknown> | undefined;
+
+    // Call the hook if provided
+    if (onBeforeAnnotationCreate) {
+      const hookData: BeforeAnnotationCreateData = {
+        element,
+        elementInfo,
+        comment,
+        selectedText: options?.selectedText ?? null,
+        isMultiSelect: options?.isMultiSelect ?? false,
+        clickX: options?.clickX ?? 0,
+        clickY: options?.clickY ?? 0,
+      };
+
+      try {
+        const result = await onBeforeAnnotationCreate(hookData);
+
+        if (result) {
+          // Check for cancellation
+          if (result.cancel) {
+            return null;
+          }
+
+          // Apply comment override if provided
+          if (result.comment !== undefined) {
+            finalComment = result.comment;
+          }
+
+          // Apply context if provided
+          if (result.context !== undefined) {
+            context = result.context;
+          }
+        }
+      } catch (error) {
+        console.error('[Annotation] onBeforeAnnotationCreate hook error:', error);
+        // Continue with annotation creation on hook error
+      }
+    }
+
+    const annotation = createAnnotation(element, finalComment, state.annotations, {
       ...options,
       includeForensic,
+      context,
+      elementInfo,
     });
 
     const newAnnotations = new Map(state.annotations);

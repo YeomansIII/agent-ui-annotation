@@ -107,6 +107,16 @@ function generateDetailedAnnotation(annotation: Annotation): string {
     }
   }
 
+  // Custom context from hook
+  if (annotation.context && Object.keys(annotation.context).length > 0) {
+    lines.push('');
+    lines.push(`**Custom Context:**`);
+    for (const [key, value] of Object.entries(annotation.context)) {
+      const formattedValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+      lines.push(`- ${key}: ${formattedValue}`);
+    }
+  }
+
   lines.push('');
   lines.push(`**${tOutput('output.feedback')}:** ${annotation.comment || tOutput('marker.noComment')}`);
 
@@ -222,6 +232,15 @@ function generateForensicAnnotation(annotation: Annotation, _env: EnvironmentInf
   // Multi-select info
   if (annotation.isMultiSelect) {
     lines.push(`*${tOutput('output.multiSelectNote')}*`);
+    lines.push('');
+  }
+
+  // Custom context from hook
+  if (annotation.context && Object.keys(annotation.context).length > 0) {
+    lines.push(`#### Custom Context`);
+    lines.push('```json');
+    lines.push(JSON.stringify(annotation.context, null, 2));
+    lines.push('```');
     lines.push('');
   }
 

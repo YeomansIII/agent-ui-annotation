@@ -3,7 +3,7 @@
  */
 
 import React, { useEffect, useRef, useCallback, type FC } from 'react';
-import type { Annotation, AnnotationId, OutputLevel, ThemeMode } from '../../core/types';
+import type { Annotation, AnnotationId, OutputLevel, ThemeMode, BeforeAnnotationCreateHook, BeforeAnnotationCreateData, BeforeAnnotationCreateResult } from '../../core/types';
 import { registerAnnotationElement, type AnnotationElement } from '../../element/annotation-element';
 
 // Ensure custom element is registered
@@ -37,6 +37,8 @@ export interface AgentUIAnnotationProps {
   annotationColor?: string;
   /** Whether the tool is disabled */
   disabled?: boolean;
+  /** Hook called before creating an annotation - can add context, modify comment, or cancel */
+  onBeforeAnnotationCreate?: BeforeAnnotationCreateHook;
   /** Callback when an annotation is created */
   onAnnotationCreate?: (annotation: Annotation) => void;
   /** Callback when an annotation is updated */
@@ -68,6 +70,7 @@ export const AgentUIAnnotation: FC<AgentUIAnnotationProps> = ({
   outputLevel = 'standard',
   annotationColor,
   disabled = false,
+  onBeforeAnnotationCreate,
   onAnnotationCreate,
   onAnnotationUpdate,
   onAnnotationDelete,
@@ -76,6 +79,14 @@ export const AgentUIAnnotation: FC<AgentUIAnnotationProps> = ({
   className,
 }) => {
   const ref = useRef<AnnotationElement>(null);
+
+  // Set up the before create hook
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    element.setBeforeCreateHook(onBeforeAnnotationCreate ?? null);
+  }, [onBeforeAnnotationCreate]);
 
   // Handle events
   useEffect(() => {
@@ -182,3 +193,6 @@ export function useAgentUIAnnotation(): {
 }
 
 export default AgentUIAnnotation;
+
+// Re-export hook types for convenience
+export type { BeforeAnnotationCreateHook, BeforeAnnotationCreateData, BeforeAnnotationCreateResult };

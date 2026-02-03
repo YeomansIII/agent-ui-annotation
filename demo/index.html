@@ -697,20 +697,20 @@
     const annotation = document.getElementById('annotation');
 
     // Listen to events
-    annotation.addEventListener('annotation:scope', (e) => {
-      log(`Scope created: ${e.detail.scope.elementInfo.humanReadable}`);
+    annotation.addEventListener('annotation:create', (e) => {
+      log(`Annotation created: ${e.detail.annotation.elementInfo.humanReadable}`);
     });
 
     annotation.addEventListener('annotation:update', (e) => {
-      log(`Scope updated: #${e.detail.scope.number}`);
+      log(`Annotation updated: #${e.detail.annotation.number}`);
     });
 
     annotation.addEventListener('annotation:delete', (e) => {
-      log(`Scope deleted: ${e.detail.id}`);
+      log(`Annotation deleted: ${e.detail.id}`);
     });
 
     annotation.addEventListener('annotation:clear', (e) => {
-      log(`Cleared ${e.detail.scopes.length} scope(s)`);
+      log(`Cleared ${e.detail.annotations.length} annotation(s)`);
     });
 
     annotation.addEventListener('annotation:copy', (e) => {

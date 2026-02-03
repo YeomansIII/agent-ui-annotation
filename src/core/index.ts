@@ -23,6 +23,9 @@ export type {
   AppState,
   AnnotationEventDetail,
   AnnotationColor,
+  BeforeAnnotationCreateData,
+  BeforeAnnotationCreateResult,
+  BeforeAnnotationCreateHook,
 } from './types';
 
 export { ANNOTATION_COLORS } from './types';

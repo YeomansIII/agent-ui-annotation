@@ -20,7 +20,7 @@
     const annotation = createAnnotation({
       theme: 'auto',
       outputLevel: 'standard',
-      onScopeCreate: (scope) => console.log('Created:', scope),
+      onAnnotationCreate: (annotation) => console.log('Created:', annotation),
       onCopy: (content) => console.log('Copied:', content),
     });
 

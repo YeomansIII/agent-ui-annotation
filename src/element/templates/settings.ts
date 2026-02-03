@@ -3,7 +3,7 @@
  */
 
 import type { Settings, OutputLevel } from '../../core/types';
-import { SCOPE_COLORS } from '../../core/types';
+import { ANNOTATION_COLORS } from '../../core/types';
 import { t } from '../../core/i18n';
 
 export interface SettingsPanelOptions {
@@ -24,11 +24,11 @@ export function renderSettingsPanel(options: SettingsPanelOptions): string {
     { value: 'forensic', label: t('settings.outputLevels.forensic') },
   ];
 
-  const colorOptions = Object.entries(SCOPE_COLORS).map(([name, hex]) => ({
+  const colorOptions = Object.entries(ANNOTATION_COLORS).map(([name, hex]) => ({
     name,
     translatedName: t(`colors.${name}`),
     hex,
-    active: settings.scopeColor === hex,
+    active: settings.annotationColor === hex,
   }));
 
   return `
@@ -56,7 +56,7 @@ export function renderSettingsPanel(options: SettingsPanelOptions): string {
                 `<button
                   class="color-option ${color.active ? 'active' : ''}"
                   style="background: ${color.hex};"
-                  data-setting="scopeColor"
+                  data-setting="annotationColor"
                   data-value="${color.hex}"
                   title="${color.translatedName}"
                 ></button>`

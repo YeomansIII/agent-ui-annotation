@@ -20,7 +20,7 @@ export const LIGHT_THEME = {
   '--as-border-primary': 'rgba(0, 0, 0, 0.1)',
   '--as-border-secondary': 'rgba(0, 0, 0, 0.05)',
 
-  // Accent (scope color)
+  // Accent (annotation color)
   '--as-accent': '#AF52DE',
   '--as-accent-hover': '#9B47C7',
   '--as-accent-light': 'rgba(175, 82, 222, 0.1)',
@@ -57,7 +57,7 @@ export const DARK_THEME = {
   '--as-border-primary': 'rgba(255, 255, 255, 0.1)',
   '--as-border-secondary': 'rgba(255, 255, 255, 0.05)',
 
-  // Accent (scope color)
+  // Accent (annotation color)
   '--as-accent': '#AF52DE',
   '--as-accent-hover': '#C77DFF',
   '--as-accent-light': 'rgba(175, 82, 222, 0.2)',
