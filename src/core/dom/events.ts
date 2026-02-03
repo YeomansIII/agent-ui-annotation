@@ -117,8 +117,10 @@ export function createEventHandlers(
     if (!target) return;
 
     // Prevent default only when active and targeting interactive elements
+    // Also check ancestors to handle clicks on children of interactive elements (e.g., icon inside a link)
     if (state.settings.blockInteractions) {
-      const isInteractive = target.matches('a, button, input, select, textarea, [role="button"], [onclick]');
+      const interactiveSelector = 'a, button, input, select, textarea, [role="button"], [onclick]';
+      const isInteractive = target.matches(interactiveSelector) || target.closest(interactiveSelector);
       if (isInteractive) {
         event.preventDefault();
         event.stopPropagation();
