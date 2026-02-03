@@ -13,12 +13,12 @@
  * ```js
  * import { createAnnotation } from 'annotation';
  *
- * const scope = createAnnotation({
+ * const instance = createAnnotation({
  *   theme: 'dark',
- *   onScopeCreate: (scope) => console.log('New scope:', scope),
+ *   onAnnotationCreate: (annotation) => console.log('New annotation:', annotation),
  * });
  *
- * scope.activate();
+ * instance.activate();
  * ```
  *
  * @example React
@@ -29,7 +29,7 @@
  *   return (
  *     <Annotation
  *       theme="auto"
- *       onScopeCreate={(scope) => console.log('New scope:', scope)}
+ *       onAnnotationCreate={(annotation) => console.log('New annotation:', annotation)}
  *     />
  *   );
  * }
@@ -50,7 +50,7 @@ export {
   type ComputedStylesSubset,
   type NearbyContext,
   type ElementInfo,
-  type Scope,
+  type Annotation,
   type OutputLevel,
   type ThemeMode,
   type ToolbarPosition,
@@ -62,7 +62,7 @@ export {
   type AppState,
   type AnnotationEventDetail,
   type AnnotationColor,
-  SCOPE_COLORS,
+  ANNOTATION_COLORS,
 
   // Controller
   createAnnotationCore,

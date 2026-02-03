@@ -1,8 +1,8 @@
 /**
- * Markdown output generation for scopes
+ * Markdown output generation for annotations
  */
 
-import type { Scope, OutputLevel, EnvironmentInfo } from '../types';
+import type { Annotation, OutputLevel, EnvironmentInfo } from '../types';
 import { formatStyles } from '../element/styles';
 import { tOutput } from '../i18n';
 
@@ -27,41 +27,41 @@ export function getEnvironmentInfo(): EnvironmentInfo {
 }
 
 /**
- * Generate compact output for a single scope
+ * Generate compact output for a single annotation
  * Format: `1. **button "Save"**: Change color to blue`
  */
-function generateCompactScope(scope: Scope): string {
-  const element = scope.elementInfo.humanReadable;
-  const comment = scope.comment || tOutput('marker.noComment');
-  return `${scope.number}. **${element}**: ${comment}`;
+function generateCompactAnnotation(annotation: Annotation): string {
+  const element = annotation.elementInfo.humanReadable;
+  const comment = annotation.comment || tOutput('marker.noComment');
+  return `${annotation.number}. **${element}**: ${comment}`;
 }
 
 /**
- * Generate standard output for a single scope
+ * Generate standard output for a single annotation
  */
-function generateStandardScope(scope: Scope): string {
+function generateStandardAnnotation(annotation: Annotation): string {
   const lines: string[] = [];
 
-  lines.push(`### ${scope.number}. ${scope.elementInfo.humanReadable}`);
-  lines.push(`**${tOutput('output.location')}:** ${scope.elementInfo.selectorPath}`);
+  lines.push(`### ${annotation.number}. ${annotation.elementInfo.humanReadable}`);
+  lines.push(`**${tOutput('output.location')}:** ${annotation.elementInfo.selectorPath}`);
 
-  if (scope.selectedText) {
-    lines.push(`**${tOutput('output.selectedText')}:** "${scope.selectedText}"`);
+  if (annotation.selectedText) {
+    lines.push(`**${tOutput('output.selectedText')}:** "${annotation.selectedText}"`);
   }
 
-  lines.push(`**${tOutput('output.feedback')}:** ${scope.comment || tOutput('marker.noComment')}`);
+  lines.push(`**${tOutput('output.feedback')}:** ${annotation.comment || tOutput('marker.noComment')}`);
 
   return lines.join('\n');
 }
 
 /**
- * Generate detailed output for a single scope
+ * Generate detailed output for a single annotation
  */
-function generateDetailedScope(scope: Scope): string {
+function generateDetailedAnnotation(annotation: Annotation): string {
   const lines: string[] = [];
-  const info = scope.elementInfo;
+  const info = annotation.elementInfo;
 
-  lines.push(`### ${scope.number}. ${info.humanReadable}`);
+  lines.push(`### ${annotation.number}. ${info.humanReadable}`);
   lines.push('');
 
   // Location info
@@ -84,8 +84,8 @@ function generateDetailedScope(scope: Scope): string {
   }
 
   // Selected text
-  if (scope.selectedText) {
-    lines.push(`**${tOutput('output.selectedText')}:** "${scope.selectedText}"`);
+  if (annotation.selectedText) {
+    lines.push(`**${tOutput('output.selectedText')}:** "${annotation.selectedText}"`);
   }
 
   // Nearby context
@@ -108,19 +108,19 @@ function generateDetailedScope(scope: Scope): string {
   }
 
   lines.push('');
-  lines.push(`**${tOutput('output.feedback')}:** ${scope.comment || tOutput('marker.noComment')}`);
+  lines.push(`**${tOutput('output.feedback')}:** ${annotation.comment || tOutput('marker.noComment')}`);
 
   return lines.join('\n');
 }
 
 /**
- * Generate forensic output for a single scope
+ * Generate forensic output for a single annotation
  */
-function generateForensicScope(scope: Scope, _env: EnvironmentInfo): string {
+function generateForensicAnnotation(annotation: Annotation, _env: EnvironmentInfo): string {
   const lines: string[] = [];
-  const info = scope.elementInfo;
+  const info = annotation.elementInfo;
 
-  lines.push(`### ${scope.number}. ${info.humanReadable}`);
+  lines.push(`### ${annotation.number}. ${info.humanReadable}`);
   lines.push('');
 
   // Full DOM path
@@ -214,26 +214,26 @@ function generateForensicScope(scope: Scope, _env: EnvironmentInfo): string {
   lines.push('');
 
   // Selected text
-  if (scope.selectedText) {
-    lines.push(`**${tOutput('output.selectedText')}:** "${scope.selectedText}"`);
+  if (annotation.selectedText) {
+    lines.push(`**${tOutput('output.selectedText')}:** "${annotation.selectedText}"`);
     lines.push('');
   }
 
   // Multi-select info
-  if (scope.isMultiSelect) {
+  if (annotation.isMultiSelect) {
     lines.push(`*${tOutput('output.multiSelectNote')}*`);
     lines.push('');
   }
 
   // Timestamps
   lines.push(`#### ${tOutput('output.metadata')}`);
-  lines.push(`- **${tOutput('output.created')}:** ${new Date(scope.createdAt).toISOString()}`);
-  lines.push(`- **${tOutput('output.updated')}:** ${new Date(scope.updatedAt).toISOString()}`);
+  lines.push(`- **${tOutput('output.created')}:** ${new Date(annotation.createdAt).toISOString()}`);
+  lines.push(`- **${tOutput('output.updated')}:** ${new Date(annotation.updatedAt).toISOString()}`);
   lines.push('');
 
   // Feedback
   lines.push(`#### ${tOutput('output.feedback')}`);
-  lines.push(scope.comment || tOutput('marker.noComment'));
+  lines.push(annotation.comment || tOutput('marker.noComment'));
 
   return lines.join('\n');
 }
@@ -241,7 +241,7 @@ function generateForensicScope(scope: Scope, _env: EnvironmentInfo): string {
 /**
  * Generate header for output
  */
-function generateHeader(level: OutputLevel, scopeCount: number): string {
+function generateHeader(level: OutputLevel, annotationCount: number): string {
   const lines: string[] = [];
   const path = window.location.pathname;
 
@@ -253,7 +253,7 @@ function generateHeader(level: OutputLevel, scopeCount: number): string {
   }
 
   lines.push(`**${tOutput('output.viewport')}:** ${window.innerWidth}×${window.innerHeight}`);
-  lines.push(`**${tOutput('output.scopes')}:** ${scopeCount}`);
+  lines.push(`**${tOutput('output.annotations')}:** ${annotationCount}`);
   lines.push('');
 
   return lines.join('\n');
@@ -262,7 +262,7 @@ function generateHeader(level: OutputLevel, scopeCount: number): string {
 /**
  * Generate forensic header with full environment info
  */
-function generateForensicHeader(env: EnvironmentInfo, scopeCount: number): string {
+function generateForensicHeader(env: EnvironmentInfo, annotationCount: number): string {
   const lines: string[] = [];
 
   lines.push(`## ${tOutput('output.pageFeedback')}: ${env.url}`);
@@ -274,7 +274,7 @@ function generateForensicHeader(env: EnvironmentInfo, scopeCount: number): strin
   lines.push(`- **${tOutput('output.scrollPosition')}:** (${env.scrollPosition.x}, ${env.scrollPosition.y})`);
   lines.push(`- **${tOutput('output.timestamp')}:** ${env.timestamp}`);
   lines.push(`- **${tOutput('output.userAgent')}:** ${env.userAgent}`);
-  lines.push(`- **${tOutput('output.totalScopes')}:** ${scopeCount}`);
+  lines.push(`- **${tOutput('output.totalAnnotations')}:** ${annotationCount}`);
   lines.push('');
   lines.push('---');
   lines.push('');
@@ -283,43 +283,43 @@ function generateForensicHeader(env: EnvironmentInfo, scopeCount: number): strin
 }
 
 /**
- * Generate markdown output for all scopes
+ * Generate markdown output for all annotations
  */
-export function generateOutput(scopes: Scope[], level: OutputLevel): string {
-  if (scopes.length === 0) {
-    return `## ${tOutput('output.pageFeedback')}\n\n${tOutput('output.noScopes')}`;
+export function generateOutput(annotations: Annotation[], level: OutputLevel): string {
+  if (annotations.length === 0) {
+    return `## ${tOutput('output.pageFeedback')}\n\n${tOutput('output.noAnnotations')}`;
   }
 
-  const sortedScopes = [...scopes].sort((a, b) => a.number - b.number);
+  const sortedAnnotations = [...annotations].sort((a, b) => a.number - b.number);
   const env = level === 'forensic' ? getEnvironmentInfo() : null;
 
   const parts: string[] = [];
 
   // Header
   if (level === 'forensic' && env) {
-    parts.push(generateForensicHeader(env, scopes.length));
+    parts.push(generateForensicHeader(env, annotations.length));
   } else {
-    parts.push(generateHeader(level, scopes.length));
+    parts.push(generateHeader(level, annotations.length));
   }
 
-  // Scope content
-  for (const scope of sortedScopes) {
+  // Annotation content
+  for (const annotation of sortedAnnotations) {
     switch (level) {
       case 'compact':
-        parts.push(generateCompactScope(scope));
+        parts.push(generateCompactAnnotation(annotation));
         break;
       case 'standard':
-        parts.push(generateStandardScope(scope));
+        parts.push(generateStandardAnnotation(annotation));
         break;
       case 'detailed':
-        parts.push(generateDetailedScope(scope));
+        parts.push(generateDetailedAnnotation(annotation));
         break;
       case 'forensic':
-        parts.push(generateForensicScope(scope, env!));
+        parts.push(generateForensicAnnotation(annotation, env!));
         break;
     }
 
-    // Add separator between scopes for non-compact levels
+    // Add separator between annotations for non-compact levels
     if (level !== 'compact') {
       parts.push('');
       parts.push('---');

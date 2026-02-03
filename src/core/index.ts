@@ -11,7 +11,7 @@ export type {
   ComputedStylesSubset,
   NearbyContext,
   ElementInfo,
-  Scope,
+  Annotation,
   OutputLevel,
   ThemeMode,
   ToolbarPosition,
@@ -25,7 +25,7 @@ export type {
   AnnotationColor,
 } from './types';
 
-export { SCOPE_COLORS } from './types';
+export { ANNOTATION_COLORS } from './types';
 
 // i18n
 export {
@@ -60,23 +60,23 @@ export {
   type AnnotationCoreOptions,
 } from './controller';
 
-// Scopes
+// Annotations
 export {
   createAnnotationManager,
   type AnnotationManager,
   generateOutput,
   copyToClipboard,
   getEnvironmentInfo,
-  saveScopes,
-  loadScopes,
-  clearScopes,
+  saveAnnotations,
+  loadAnnotations,
+  clearAnnotations,
   saveSettings,
   loadSettings,
   saveTheme,
   loadTheme,
   createAutoSaver,
-  cleanupExpiredScopes,
-} from './scopes';
+  cleanupExpiredAnnotations,
+} from './annotations';
 
 // Element
 export {

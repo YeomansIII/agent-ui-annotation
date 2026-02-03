@@ -162,8 +162,8 @@ export const componentStyles = css`
     margin: 0 var(--as-space-xs);
   }
 
-  /* Scope count */
-  .scope-count {
+  /* Annotation count */
+  .annotation-count {
     display: flex;
     align-items: center;
     gap: var(--as-space-xs);
@@ -173,7 +173,7 @@ export const componentStyles = css`
     color: var(--as-text-secondary);
   }
 
-  .scope-count .count {
+  .annotation-count .count {
     color: var(--as-text-primary);
     font-weight: 600;
   }

@@ -1,28 +1,28 @@
 /**
- * Scopes module - re-exports
+ * Annotations module - re-exports
  */
 
 export {
   generateAnnotationId,
-  getNextScopeNumber,
-  createScope,
-  updateScopeComment,
-  updateScopeElementInfo,
-  renumberScopes,
+  getNextAnnotationNumber,
+  createAnnotation,
+  updateAnnotationComment,
+  updateAnnotationElementInfo,
+  renumberAnnotations,
   createAnnotationManager,
   type AnnotationManager,
-} from './scope';
+} from './annotation';
 
 export {
-  saveScopes,
-  loadScopes,
-  clearScopes,
+  saveAnnotations,
+  loadAnnotations,
+  clearAnnotations,
   saveSettings,
   loadSettings,
   saveTheme,
   loadTheme,
   createAutoSaver,
-  cleanupExpiredScopes,
+  cleanupExpiredAnnotations,
 } from './persistence';
 
 export {

@@ -2,18 +2,18 @@
  * Core controller - ties together all core functionality
  */
 
-import type { AppState, Scope, AnnotationId, Settings, ToolMode, OutputLevel, EventMap } from './types';
+import type { AppState, Annotation, AnnotationId, Settings, ToolMode, OutputLevel, EventMap } from './types';
 import { createStore, type Store } from './store';
 import { createEventBus, type EventBus } from './event-bus';
 import { createInitialState, DEFAULT_SETTINGS } from './state';
-import { createAnnotationManager, type AnnotationManager } from './scopes/scope';
+import { createAnnotationManager, type AnnotationManager } from './annotations/annotation';
 import {
-  loadScopes,
+  loadAnnotations,
   loadSettings,
   saveSettings,
   createAutoSaver,
-} from './scopes/persistence';
-import { generateOutput, copyToClipboard } from './scopes/output';
+} from './annotations/persistence';
+import { generateOutput, copyToClipboard } from './annotations/output';
 import { createEventHandlers } from './dom/events';
 import { createHoverDetection } from './dom/hover-detection';
 import { createMultiSelect } from './dom/multi-select';
@@ -29,16 +29,16 @@ import { collectElementInfo } from './element';
 export interface AnnotationCoreOptions {
   /** Initial settings override */
   settings?: Partial<Settings>;
-  /** Whether to load persisted scopes */
+  /** Whether to load persisted annotations */
   loadPersisted?: boolean;
-  /** Callback when a scope is created */
-  onScopeCreate?: (scope: Scope) => void;
-  /** Callback when a scope is updated */
-  onScopeUpdate?: (scope: Scope) => void;
-  /** Callback when a scope is deleted */
-  onScopeDelete?: (id: AnnotationId) => void;
-  /** Callback when all scopes are cleared */
-  onScopesClear?: (scopes: Scope[]) => void;
+  /** Callback when an annotation is created */
+  onAnnotationCreate?: (annotation: Annotation) => void;
+  /** Callback when an annotation is updated */
+  onAnnotationUpdate?: (annotation: Annotation) => void;
+  /** Callback when an annotation is deleted */
+  onAnnotationDelete?: (id: AnnotationId) => void;
+  /** Callback when all annotations are cleared */
+  onAnnotationsClear?: (annotations: Annotation[]) => void;
   /** Callback when output is copied */
   onCopy?: (content: string, level: OutputLevel) => void;
   /** Whether to copy to clipboard automatically */
@@ -50,8 +50,8 @@ export interface AnnotationCore {
   store: Store<AppState>;
   /** Event bus for cross-component communication */
   eventBus: EventBus<EventMap>;
-  /** Scope manager for CRUD operations */
-  scopes: AnnotationManager;
+  /** Annotation manager for CRUD operations */
+  annotations: AnnotationManager;
   /** Freeze manager for animations/videos */
   freeze: FreezeManager;
 
@@ -79,8 +79,8 @@ export interface AnnotationCore {
   /** Get output without copying */
   getOutput: (level?: OutputLevel) => string;
 
-  /** Show popup for creating/editing scope */
-  showPopup: (scopeId?: AnnotationId) => void;
+  /** Show popup for creating/editing annotation */
+  showPopup: (annotationId?: AnnotationId) => void;
   /** Hide popup */
   hidePopup: () => void;
 
@@ -98,17 +98,17 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
   const {
     settings: initialSettings,
     loadPersisted = true,
-    onScopeCreate,
-    onScopeUpdate,
-    onScopeDelete,
-    onScopesClear,
+    onAnnotationCreate,
+    onAnnotationUpdate,
+    onAnnotationDelete,
+    onAnnotationsClear,
     onCopy,
     copyToClipboard: shouldCopyToClipboard = true,
   } = options;
 
   // Load persisted data
   const persistedSettings = loadPersisted ? loadSettings() : null;
-  const persistedScopes = loadPersisted ? loadScopes() : new Map();
+  const persistedAnnotations = loadPersisted ? loadAnnotations() : new Map();
 
   // Merge settings
   const mergedSettings: Settings = {
@@ -121,7 +121,7 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
   const store = createStore(
     createInitialState({
       settings: mergedSettings,
-      scopes: persistedScopes,
+      annotations: persistedAnnotations,
     })
   );
 
@@ -129,37 +129,37 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
   const eventBus = createEventBus<EventMap>();
 
   // Create managers
-  const scopeManager = createAnnotationManager(store, eventBus);
+  const annotationManager = createAnnotationManager(store, eventBus);
   const freezeManager = createFreezeManager(store, eventBus);
   const eventHandlers = createEventHandlers(store, eventBus);
   const hoverDetection = createHoverDetection(store, eventBus);
   const multiSelect = createMultiSelect(store, eventBus);
 
   // Create auto-saver
-  const autoSaver = createAutoSaver(() => store.getState().scopes, 1000);
+  const autoSaver = createAutoSaver(() => store.getState().annotations, 1000);
 
   // Set up event listeners for callbacks
-  if (onScopeCreate) {
-    eventBus.on('scope:create', ({ scope }) => onScopeCreate(scope));
+  if (onAnnotationCreate) {
+    eventBus.on('annotation:create', ({ annotation }) => onAnnotationCreate(annotation));
   }
 
-  if (onScopeUpdate) {
-    eventBus.on('scope:update', ({ scope }) => onScopeUpdate(scope));
+  if (onAnnotationUpdate) {
+    eventBus.on('annotation:update', ({ annotation }) => onAnnotationUpdate(annotation));
   }
 
-  if (onScopeDelete) {
-    eventBus.on('scope:delete', ({ id }) => onScopeDelete(id));
+  if (onAnnotationDelete) {
+    eventBus.on('annotation:delete', ({ id }) => onAnnotationDelete(id));
   }
 
-  if (onScopesClear) {
-    eventBus.on('scopes:clear', ({ scopes }) => onScopesClear(scopes));
+  if (onAnnotationsClear) {
+    eventBus.on('annotations:clear', ({ annotations }) => onAnnotationsClear(annotations));
   }
 
-  // Auto-save on scope changes
-  eventBus.on('scope:create', () => autoSaver.save());
-  eventBus.on('scope:update', () => autoSaver.save());
-  eventBus.on('scope:delete', () => autoSaver.save());
-  eventBus.on('scopes:clear', () => autoSaver.save());
+  // Auto-save on annotation changes
+  eventBus.on('annotation:create', () => autoSaver.save());
+  eventBus.on('annotation:update', () => autoSaver.save());
+  eventBus.on('annotation:delete', () => autoSaver.save());
+  eventBus.on('annotations:clear', () => autoSaver.save());
 
   // Save settings on change
   eventBus.on('settings:change', ({ settings }) => {
@@ -167,7 +167,7 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
     saveSettings({ ...currentSettings, ...settings });
   });
 
-  // Handle element clicks to create scopes
+  // Handle element clicks to create annotations
   eventBus.on('element:click', ({ element, elementInfo, clickX, clickY }) => {
     const state = store.getState();
 
@@ -178,10 +178,10 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
     // - Non-fixed elements: document coords (viewport + scroll at click time)
     //
     // For popup positioning, we need viewport coords.
-    // For scope/marker storage, we use the coords as-is (document for non-fixed, viewport for fixed).
+    // For annotation/marker storage, we use the coords as-is (document for non-fixed, viewport for fixed).
     const viewportY = elementInfo.isFixed ? clickY : clickY - window.scrollY;
 
-    // Show popup for creating scope with pending marker
+    // Show popup for creating annotation with pending marker
     store.setState({
       popupVisible: true,
       popupAnnotationId: null,
@@ -372,9 +372,9 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
   const copyOutput = async (level?: OutputLevel): Promise<boolean> => {
     const state = store.getState();
     const outputLevel = level || state.settings.outputLevel;
-    const scopes = scopeManager.getAllScopes();
+    const annotations = annotationManager.getAllAnnotations();
 
-    const content = generateOutput(scopes, outputLevel);
+    const content = generateOutput(annotations, outputLevel);
 
     let success = true;
     if (shouldCopyToClipboard) {
@@ -395,7 +395,7 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
 
       // Auto-clear if enabled
       if (state.settings.autoClearAfterCopy) {
-        scopeManager.clearAllScopes();
+        annotationManager.clearAllAnnotations();
       }
     }
 
@@ -408,32 +408,32 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
   const getOutput = (level?: OutputLevel): string => {
     const state = store.getState();
     const outputLevel = level || state.settings.outputLevel;
-    const scopes = scopeManager.getAllScopes();
+    const annotations = annotationManager.getAllAnnotations();
 
-    return generateOutput(scopes, outputLevel);
+    return generateOutput(annotations, outputLevel);
   };
 
   /**
-   * Show popup for creating/editing scope
+   * Show popup for creating/editing annotation
    */
-  const showPopup = (scopeId?: AnnotationId) => {
-    if (scopeId) {
-      // Editing existing scope - use its stored click position
-      const scope = store.getState().scopes.get(scopeId);
-      if (scope) {
+  const showPopup = (annotationId?: AnnotationId) => {
+    if (annotationId) {
+      // Editing existing annotation - use its stored click position
+      const annotation = store.getState().annotations.get(annotationId);
+      if (annotation) {
         store.setState({
           popupVisible: true,
-          popupAnnotationId: scopeId,
-          popupElementInfo: scope.elementInfo,
-          popupClickX: scope.clickX,
-          popupClickY: scope.clickY,
+          popupAnnotationId: annotationId,
+          popupElementInfo: annotation.elementInfo,
+          popupClickX: annotation.clickX,
+          popupClickY: annotation.clickY,
         });
         return;
       }
     }
     store.setState({
       popupVisible: true,
-      popupAnnotationId: scopeId || null,
+      popupAnnotationId: annotationId || null,
     });
   };
 
@@ -477,7 +477,7 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
   return {
     store,
     eventBus,
-    scopes: scopeManager,
+    annotations: annotationManager,
     freeze: freezeManager,
     activate,
     deactivate,

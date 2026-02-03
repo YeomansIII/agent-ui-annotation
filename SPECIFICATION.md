@@ -15,13 +15,13 @@ This tool solves that problem by allowing users to click on any element in a run
 - Position and bounding box information
 - Optional forensic details (CSS classes, computed styles, accessibility info)
 
-The collected scopes are exported as structured markdown that AI agents can parse to locate and modify the exact code responsible for those visual elements.
+The collected annotations are exported as structured markdown that AI agents can parse to locate and modify the exact code responsible for those visual elements.
 
 ---
 
 ## Core Concepts
 
-### Scopes
+### Annotations
 
 An annotation is a single piece of feedback attached to a DOM element (or area). It contains:
 
@@ -60,7 +60,7 @@ Numbered markers appear on the page at annotation positions. They:
 - Display sequential numbers (1, 2, 3...)
 - Show tooltips on hover with element name and comment
 - Can be clicked to edit or delete the annotation
-- Respect fixed/sticky positioning (stay fixed when scrolling if the scoped element was fixed)
+- Respect fixed/sticky positioning (stay fixed when scrolling if the annotated element was fixed)
 
 ---
 
@@ -76,7 +76,7 @@ Numbered markers appear on the page at annotation positions. They:
 
 #### 2. Text Selection Annotation
 - User selects text on the page
-- User clicks to scope
+- User clicks to annotate
 - Selected text is captured in the annotation for context
 
 #### 3. Multi-Select Drag
@@ -137,8 +137,8 @@ From left to right:
 | Freeze/Unfreeze | Pauses all CSS animations and videos on page |
 | Show/Hide Markers | Toggles marker visibility |
 | Mascot + Count | Shows annotation count |
-| Copy | Exports scopes as markdown to clipboard |
-| Clear All | Removes all scopes (with confirmation animation) |
+| Copy | Exports annotations as markdown to clipboard |
+| Clear All | Removes all annotations (with confirmation animation) |
 | Theme Toggle | Switches between light and dark mode |
 | Close | Deactivates toolbar and collapses |
 
@@ -250,13 +250,13 @@ Pausing animations helps capture specific animation states:
 
 | Key | Content |
 |-----|---------|
-| `feedback-scopes-{pathname}` | Scopes array (path-specific) |
+| `feedback-annotations-{pathname}` | Annotations array (path-specific) |
 | `feedback-toolbar-settings` | Settings object |
 | `feedback-toolbar-theme` | "dark" or "light" |
 
 ### Retention
 
-Scopes older than 7 days are automatically filtered out on load.
+Annotations older than 7 days are automatically filtered out on load.
 
 ---
 
@@ -279,7 +279,7 @@ Typed event emitter for cross-component communication:
 | `annotation:add` | Annotation object |
 | `annotation:delete` | Annotation object |
 | `annotation:update` | Annotation object |
-| `scopes:clear` | Annotation array |
+| `annotations:clear` | Annotation array |
 | `copy` | Markdown string |
 | `activate` | void |
 | `deactivate` | void |
@@ -290,7 +290,7 @@ Typed event emitter for cross-component communication:
 
 The complete state includes approximately 30 fields organized into:
 
-- **Core**: `isActive`, `scopes[]`, `showMarkers`
+- **Core**: `isActive`, `annotations[]`, `showMarkers`
 - **UI Visibility**: `markersVisible`, `markersExiting`, `mounted`
 - **Hover**: `hoverInfo`, `hoverPosition`
 - **Pending/Editing**: `pendingAnnotation`, `editingAnnotation`, exit flags
@@ -402,7 +402,7 @@ Uses capture phase event listener to intercept clicks before they reach page ele
 ### Scroll Tracking
 
 Listens to scroll events to:
-- Update marker positions for non-fixed scopes
+- Update marker positions for non-fixed annotations
 - Throttle updates during rapid scrolling
 
 ### Data Attributes
@@ -483,7 +483,7 @@ Collects:
 onAnnotationAdd?: (annotation) => void
 onAnnotationDelete?: (annotation) => void
 onAnnotationUpdate?: (annotation) => void
-onAnnotationsClear?: (scopes[]) => void
+onAnnotationsClear?: (annotations[]) => void
 onCopy?: (markdown: string) => void
 copyToClipboard?: boolean // default: true
 ```
@@ -492,7 +492,7 @@ copyToClipboard?: boolean // default: true
 - `annotation-add` - detail: Annotation
 - `annotation-delete` - detail: Annotation
 - `annotation-update` - detail: Annotation
-- `scopes-clear` - detail: Annotation[]
+- `annotations-clear` - detail: Annotation[]
 - `copy` - detail: markdown string
 
 Events bubble and cross shadow DOM boundary (composed: true).
@@ -512,7 +512,7 @@ Elements with `position: fixed` or `position: sticky` require special handling:
 
 ## SPA Navigation Handling
 
-Module-level flag prevents re-playing entrance animation on same-page navigation. Persisted scopes survive navigation (stored by pathname).
+Module-level flag prevents re-playing entrance animation on same-page navigation. Persisted annotations survive navigation (stored by pathname).
 
 ---
 
@@ -533,7 +533,7 @@ Module-level flag prevents re-playing entrance animation on same-page navigation
 {
   outputDetail: "standard",
   autoClearAfterCopy: false,
-  scopeColor: "#bc3cf7",
+  annotationColor: "#bc3cf7",
   blockInteractions: false
 }
 ```
@@ -544,7 +544,7 @@ Module-level flag prevents re-playing entrance animation on same-page navigation
 
 This tool bridges visual feedback and code modification by providing:
 
-1. **Click-to-scope** interface for visual elements
+1. **Click-to-annotate** interface for visual elements
 2. **Smart element identification** that creates human-readable names
 3. **CSS path generation** for agent consumption
 4. **Structured markdown output** at configurable detail levels

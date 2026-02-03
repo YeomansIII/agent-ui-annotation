@@ -311,7 +311,7 @@
       background: var(--border);
     }
 
-    .scope-count {
+    .annotation-count {
       display: flex;
       align-items: center;
       gap: 4px;
@@ -321,7 +321,7 @@
       position: relative;
     }
 
-    .scope-count svg {
+    .annotation-count svg {
       width: 16px;
       height: 16px;
       stroke: var(--secondary);
@@ -330,15 +330,15 @@
       flex-shrink: 0;
     }
 
-    .scope-count .count-wrap {
+    .annotation-count .count-wrap {
       position: relative;
       width: 12px;
       height: 16px;
       margin-left: 4px;
     }
 
-    .scope-count .count-0,
-    .scope-count .count-1 {
+    .annotation-count .count-0,
+    .annotation-count .count-1 {
       position: absolute;
       top: 0;
       left: 0;
@@ -708,7 +708,7 @@
       }
     }
 
-    /* Scope count - show 0 initially, hide after annotation */
+    /* Annotation count - show 0 initially, hide after annotation */
     @keyframes count-zero {
       0%, 37% {
         opacity: 1;
@@ -727,7 +727,7 @@
       }
     }
 
-    /* Scope count - hidden initially, show 1 after annotation */
+    /* Annotation count - hidden initially, show 1 after annotation */
     @keyframes count-one {
       0%, 38% {
         opacity: 0;
@@ -879,11 +879,11 @@
       animation: copy-highlight 8s infinite var(--smooth);
     }
 
-    .scope-count .count-0 {
+    .annotation-count .count-0 {
       animation: count-zero 8s infinite var(--smooth);
     }
 
-    .scope-count .count-1 {
+    .annotation-count .count-1 {
       animation: count-one 8s infinite var(--smooth);
     }
 
@@ -992,8 +992,8 @@
       </svg>
     </div>
     <div class="toolbar-separator"></div>
-    <div class="scope-count">
-      <!-- Scope icon -->
+    <div class="annotation-count">
+      <!-- Annotation icon -->
       <svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="10"/>
         <circle cx="12" cy="12" r="6"/>

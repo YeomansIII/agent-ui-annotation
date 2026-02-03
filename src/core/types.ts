@@ -2,7 +2,7 @@
  * Core TypeScript interfaces for Annotation
  */
 
-/** Unique identifier for scopes */
+/** Unique identifier for annotations */
 export type AnnotationId = string;
 
 /** Position coordinates */
@@ -64,7 +64,7 @@ export interface NearbyContext {
   containingLandmark: string | null;
 }
 
-/** Full element information collected for scope */
+/** Full element information collected for annotation */
 export interface ElementInfo {
   /** Human-readable identifier like 'button "Save"' */
   humanReadable: string;
@@ -94,8 +94,8 @@ export interface ElementInfo {
   isFixed: boolean;
 }
 
-/** Single scope (annotation) */
-export interface Scope {
+/** Single annotation */
+export interface Annotation {
   id: AnnotationId;
   /** Display number (1-based) */
   number: number;
@@ -109,7 +109,7 @@ export interface Scope {
   createdAt: number;
   /** Timestamp of last update */
   updatedAt: number;
-  /** Selected text at time of scope creation */
+  /** Selected text at time of annotation creation */
   selectedText: string | null;
   /** Whether created via multi-select */
   isMultiSelect: boolean;
@@ -123,8 +123,6 @@ export interface Scope {
   offsetY?: number;
 }
 
-/** Type alias for Annotation (same as Scope) */
-export type Annotation = Scope;
 
 /** Output detail level */
 export type OutputLevel = 'compact' | 'standard' | 'detailed' | 'forensic';
@@ -145,9 +143,9 @@ export interface Settings {
   toolbarPosition: ToolbarPosition;
   showTooltips: boolean;
   showMarkerNumbers: boolean;
-  freezeOnScope: boolean;
-  persistScopes: boolean;
-  scopeColor: string;
+  freezeOnAnnotation: boolean;
+  persistAnnotations: boolean;
+  annotationColor: string;
   blockInteractions: boolean;
   autoClearAfterCopy: boolean;
 }
@@ -172,11 +170,11 @@ export interface EnvironmentInfo {
 
 /** Event types emitted by the event bus */
 export type EventMap = {
-  'scope:create': { scope: Scope };
-  'scope:update': { scope: Scope };
-  'scope:delete': { id: AnnotationId };
-  'scope:select': { id: AnnotationId | null };
-  'scopes:clear': { scopes: Scope[] };
+  'annotation:create': { annotation: Annotation };
+  'annotation:update': { annotation: Annotation };
+  'annotation:delete': { id: AnnotationId };
+  'annotation:select': { id: AnnotationId | null };
+  'annotations:clear': { annotations: Annotation[] };
   'element:hover': { element: Element | null; elementInfo: ElementInfo | null };
   'element:click': { element: Element; elementInfo: ElementInfo; clickX: number; clickY: number };
   'mode:change': { mode: ToolMode };
@@ -194,9 +192,9 @@ export type EventMap = {
 
 /** Store state shape */
 export interface AppState {
-  /** Map of all scopes by ID */
-  scopes: Map<AnnotationId, Scope>;
-  /** Currently selected scope ID */
+  /** Map of all annotations by ID */
+  annotations: Map<AnnotationId, Annotation>;
+  /** Currently selected annotation ID */
   selectedAnnotationId: AnnotationId | null;
   /** Currently hovered element */
   hoveredElement: Element | null;
@@ -220,7 +218,7 @@ export interface AppState {
   isFrozen: boolean;
   /** Whether popup is visible */
   popupVisible: boolean;
-  /** ID of scope being edited in popup */
+  /** ID of annotation being edited in popup */
   popupAnnotationId: AnnotationId | null;
   /** Element info for popup (stored separately from hover to prevent clearing) */
   popupElementInfo: ElementInfo | null;
@@ -232,7 +230,7 @@ export interface AppState {
   pendingMarkerY: number;
   /** Whether pending marker element is fixed */
   pendingMarkerIsFixed: boolean;
-  /** Multiple selected elements for batch scope creation */
+  /** Multiple selected elements for batch annotation creation */
   multiSelectElements: Element[];
   /** Element infos for multi-select (parallel array to multiSelectElements) */
   multiSelectInfos: ElementInfo[];
@@ -262,16 +260,16 @@ export interface AppState {
 
 /** Custom element events */
 export interface AnnotationEventDetail {
-  'agentscope:scope': { scope: Scope };
-  'agentscope:update': { scope: Scope };
-  'agentscope:delete': { id: AnnotationId };
-  'agentscope:clear': { scopes: Scope[] };
-  'agentscope:copy': { content: string; level: OutputLevel };
-  'agentscope:error': { message: string; error?: Error };
+  'annotation:create': { annotation: Annotation };
+  'annotation:update': { annotation: Annotation };
+  'annotation:delete': { id: AnnotationId };
+  'annotation:clear': { annotations: Annotation[] };
+  'annotation:copy': { content: string; level: OutputLevel };
+  'annotation:error': { message: string; error?: Error };
 }
 
 /** Marker color options */
-export const SCOPE_COLORS = {
+export const ANNOTATION_COLORS = {
   purple: '#AF52DE',
   blue: '#3c82f7',
   cyan: '#5AC8FA',
@@ -281,7 +279,7 @@ export const SCOPE_COLORS = {
   red: '#FF3B30',
 } as const;
 
-export type AnnotationColor = keyof typeof SCOPE_COLORS;
+export type AnnotationColor = keyof typeof ANNOTATION_COLORS;
 
 /** Re-export i18n types for convenience */
 export type { TranslationStrings, PartialTranslationStrings, I18nOptions, BuiltInLocale } from './i18n/types';

@@ -1,10 +1,10 @@
 /**
- * LocalStorage persistence for scopes and settings
+ * LocalStorage persistence for annotations and settings
  */
 
-import type { Scope, AnnotationId, Settings, ElementInfo } from '../types';
+import type { Annotation, AnnotationId, Settings, ElementInfo } from '../types';
 
-const SCOPE_KEY_PREFIX = 'annotation-scopes-';
+const ANNOTATION_KEY_PREFIX = 'annotation-annotations-';
 const SETTINGS_KEY = 'annotation-settings';
 const THEME_KEY = 'annotation-theme';
 
@@ -12,9 +12,9 @@ const THEME_KEY = 'annotation-theme';
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * Serializable version of Scope (without DOM element reference)
+ * Serializable version of Annotation (without DOM element reference)
  */
-interface SerializedScope {
+interface SerializedAnnotation {
   id: AnnotationId;
   number: number;
   comment: string;
@@ -30,32 +30,32 @@ interface SerializedScope {
 /**
  * Get storage key for current page
  */
-function getScopeStorageKey(): string {
-  return SCOPE_KEY_PREFIX + window.location.pathname;
+function getAnnotationStorageKey(): string {
+  return ANNOTATION_KEY_PREFIX + window.location.pathname;
 }
 
 /**
- * Serialize a scope for storage
+ * Serialize an annotation for storage
  */
-function serializeScope(scope: Scope): SerializedScope {
+function serializeAnnotation(annotation: Annotation): SerializedAnnotation {
   return {
-    id: scope.id,
-    number: scope.number,
-    comment: scope.comment,
-    elementInfo: scope.elementInfo,
-    createdAt: scope.createdAt,
-    updatedAt: scope.updatedAt,
-    selectedText: scope.selectedText,
-    isMultiSelect: scope.isMultiSelect,
-    clickX: scope.clickX,
-    clickY: scope.clickY,
+    id: annotation.id,
+    number: annotation.number,
+    comment: annotation.comment,
+    elementInfo: annotation.elementInfo,
+    createdAt: annotation.createdAt,
+    updatedAt: annotation.updatedAt,
+    selectedText: annotation.selectedText,
+    isMultiSelect: annotation.isMultiSelect,
+    clickX: annotation.clickX,
+    clickY: annotation.clickY,
   };
 }
 
 /**
- * Deserialize a scope from storage
+ * Deserialize an annotation from storage
  */
-function deserializeScope(data: SerializedScope): Scope {
+function deserializeAnnotation(data: SerializedAnnotation): Annotation {
   return {
     ...data,
     element: null, // DOM reference can't be restored
@@ -63,70 +63,70 @@ function deserializeScope(data: SerializedScope): Scope {
 }
 
 /**
- * Filter out expired scopes
+ * Filter out expired annotations
  */
-function filterExpired(scopes: SerializedScope[]): SerializedScope[] {
+function filterExpired(annotations: SerializedAnnotation[]): SerializedAnnotation[] {
   const cutoff = Date.now() - RETENTION_MS;
-  return scopes.filter((scope) => scope.createdAt > cutoff);
+  return annotations.filter((annotation) => annotation.createdAt > cutoff);
 }
 
 /**
- * Save scopes to LocalStorage
+ * Save annotations to LocalStorage
  */
-export function saveScopes(scopes: Map<AnnotationId, Scope>): boolean {
+export function saveAnnotations(annotations: Map<AnnotationId, Annotation>): boolean {
   try {
-    const key = getScopeStorageKey();
-    const serialized = Array.from(scopes.values()).map(serializeScope);
+    const key = getAnnotationStorageKey();
+    const serialized = Array.from(annotations.values()).map(serializeAnnotation);
     localStorage.setItem(key, JSON.stringify(serialized));
     return true;
   } catch (error) {
-    console.error('[Annotation] Failed to save scopes:', error);
+    console.error('[Annotation] Failed to save annotations:', error);
     return false;
   }
 }
 
 /**
- * Load scopes from LocalStorage
+ * Load annotations from LocalStorage
  */
-export function loadScopes(): Map<AnnotationId, Scope> {
+export function loadAnnotations(): Map<AnnotationId, Annotation> {
   try {
-    const key = getScopeStorageKey();
+    const key = getAnnotationStorageKey();
     const stored = localStorage.getItem(key);
 
     if (!stored) {
       return new Map();
     }
 
-    const parsed = JSON.parse(stored) as SerializedScope[];
+    const parsed = JSON.parse(stored) as SerializedAnnotation[];
     const filtered = filterExpired(parsed);
 
-    // If we filtered out expired scopes, save the cleaned list
+    // If we filtered out expired annotations, save the cleaned list
     if (filtered.length !== parsed.length) {
       localStorage.setItem(key, JSON.stringify(filtered));
     }
 
-    const scopes = new Map<AnnotationId, Scope>();
+    const annotations = new Map<AnnotationId, Annotation>();
     for (const data of filtered) {
-      scopes.set(data.id, deserializeScope(data));
+      annotations.set(data.id, deserializeAnnotation(data));
     }
 
-    return scopes;
+    return annotations;
   } catch (error) {
-    console.error('[Annotation] Failed to load scopes:', error);
+    console.error('[Annotation] Failed to load annotations:', error);
     return new Map();
   }
 }
 
 /**
- * Clear scopes from LocalStorage
+ * Clear annotations from LocalStorage
  */
-export function clearScopes(): boolean {
+export function clearAnnotations(): boolean {
   try {
-    const key = getScopeStorageKey();
+    const key = getAnnotationStorageKey();
     localStorage.removeItem(key);
     return true;
   } catch (error) {
-    console.error('[Annotation] Failed to clear scopes:', error);
+    console.error('[Annotation] Failed to clear annotations:', error);
     return false;
   }
 }
@@ -191,7 +191,7 @@ export function loadTheme(): 'light' | 'dark' | null {
  * Create an auto-save handler that debounces saves
  */
 export function createAutoSaver(
-  getScopes: () => Map<AnnotationId, Scope>,
+  getAnnotations: () => Map<AnnotationId, Annotation>,
   debounceMs: number = 1000
 ): { save: () => void; flush: () => void; destroy: () => void } {
   let timeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -201,7 +201,7 @@ export function createAutoSaver(
       clearTimeout(timeoutId);
       timeoutId = null;
     }
-    saveScopes(getScopes());
+    saveAnnotations(getAnnotations());
   };
 
   const save = () => {
@@ -222,9 +222,9 @@ export function createAutoSaver(
 }
 
 /**
- * Clean up all expired scopes across all pages
+ * Clean up all expired annotations across all pages
  */
-export function cleanupExpiredScopes(): number {
+export function cleanupExpiredAnnotations(): number {
   let cleaned = 0;
 
   try {
@@ -232,14 +232,14 @@ export function cleanupExpiredScopes(): number {
     const cutoff = Date.now() - RETENTION_MS;
 
     for (const key of keys) {
-      if (!key.startsWith(SCOPE_KEY_PREFIX)) continue;
+      if (!key.startsWith(ANNOTATION_KEY_PREFIX)) continue;
 
       try {
         const stored = localStorage.getItem(key);
         if (!stored) continue;
 
-        const parsed = JSON.parse(stored) as SerializedScope[];
-        const filtered = parsed.filter((scope) => scope.createdAt > cutoff);
+        const parsed = JSON.parse(stored) as SerializedAnnotation[];
+        const filtered = parsed.filter((annotation) => annotation.createdAt > cutoff);
 
         if (filtered.length === 0) {
           localStorage.removeItem(key);
@@ -253,7 +253,7 @@ export function cleanupExpiredScopes(): number {
       }
     }
   } catch (error) {
-    console.error('[Annotation] Failed to cleanup expired scopes:', error);
+    console.error('[Annotation] Failed to cleanup expired annotations:', error);
   }
 
   return cleaned;
