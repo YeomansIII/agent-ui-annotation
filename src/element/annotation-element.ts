@@ -1,7 +1,10 @@
 /**
- * Annotation Custom Element (Web Component)
+ * Annotation Custom Element (Web Component) - Lit Version
  */
 
+import { LitElement, html, nothing } from 'lit';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import { ref, createRef, type Ref } from 'lit/directives/ref.js';
 import type { AppState, Settings, OutputLevel, ThemeMode } from '../core/types';
 import { createAnnotationCore, type AnnotationCore } from '../core/controller';
 import { resolveTheme } from '../themes/variables';
@@ -10,13 +13,50 @@ import {
   renderCollapsedToolbar,
   renderExpandedToolbar,
   renderMarkers,
-  renderPopup,
   renderHoverTooltip,
   renderHighlight,
   renderSelectionRect,
   renderSettingsPanel,
+  icons,
 } from './templates';
 import { normalizeRect } from '../core/dom/multi-select';
+import { t } from '../core/i18n';
+
+/**
+ * Calculate popup position near click point
+ */
+function calculatePopupPosition(clickX: number, clickY: number): { left: string; top: string } {
+  const popupWidth = 340;
+  const popupHeight = 220;
+  const margin = 12;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+
+  let left = clickX + margin;
+  let top = clickY - popupHeight / 2;
+
+  if (left + popupWidth > viewportWidth - margin) {
+    left = clickX - popupWidth - margin;
+  }
+
+  if (left < margin) {
+    left = Math.max(margin, clickX - popupWidth / 2);
+  }
+
+  left = Math.max(margin, Math.min(left, viewportWidth - popupWidth - margin));
+
+  if (top < margin) {
+    top = margin;
+  }
+  if (top + popupHeight > viewportHeight - margin) {
+    top = viewportHeight - popupHeight - margin;
+  }
+
+  return {
+    left: `${left}px`,
+    top: `${top}px`,
+  };
+}
 
 /**
  * Annotation Web Component
@@ -33,62 +73,64 @@ import { normalizeRect } from '../core/dom/multi-select';
  * - annotation:clear - Fired when all scopes are cleared
  * - annotation:copy - Fired when output is copied
  */
-export class AnnotationElement extends HTMLElement {
+export class AnnotationElement extends LitElement {
+  static styles = componentStyles;
+
+  // Static properties (no decorators for lighter bundle)
+  // Using 'declare' to avoid class field shadowing Lit's accessors
+  // See: https://lit.dev/msg/class-field-shadowing
+  static properties = {
+    theme: { type: String, reflect: true },
+    outputLevel: { type: String, attribute: 'output-level' },
+    scopeColor: { type: String, attribute: 'scope-color' },
+    disabled: { type: Boolean },
+  };
+
+  // Public properties (from attributes)
+  // Use 'declare' so TypeScript knows about them without generating class fields
+  declare theme: ThemeMode;
+  declare outputLevel: OutputLevel;
+  declare scopeColor: string;
+  declare disabled: boolean;
+
+  constructor() {
+    super();
+    // Initialize default values in constructor instead of class fields
+    this.theme = 'auto';
+    this.outputLevel = 'standard';
+    this.scopeColor = '#AF52DE';
+    this.disabled = false;
+  }
+
+  // Core controller
   private core: AnnotationCore | null = null;
-  private shadow: ShadowRoot;
   private unsubscribe: (() => void) | null = null;
-  private styleElement: HTMLStyleElement;
-  private contentElement: HTMLDivElement;
 
-  // Popup state
-  private isComposing = false;
-  private popupShaking = false;
-
-  // Hover tracking
-  private mouseX = 0;
-  private mouseY = 0;
+  // Internal state
+  private appState: AppState | null = null;
+  private popupComment: string = '';
+  private popupShaking: boolean = false;
+  private mouseX: number = 0;
+  private mouseY: number = 0;
   private hoveredMarkerId: string | null = null;
 
-  // Track if toolbar has been shown before (to prevent re-animation)
-  private toolbarShownOnce = false;
-
-  // Track if settings panel has animated (to prevent re-animation on state changes)
-  private settingsPanelAnimated = false;
-
-  // Track which marker tooltip has animated (to prevent re-animation)
+  // Animation tracking
+  private toolbarShownOnce: boolean = false;
+  private settingsPanelAnimated: boolean = false;
   private animatedMarkerTooltipId: string | null = null;
+  private lastRenderedSettings: string | null = null;
 
-  // Bound handlers for cleanup in disconnectedCallback
+  // Bound handlers for cleanup
   private boundHandleResize = () => this.handleWindowResize();
   private boundHandleMouseMove = (e: MouseEvent) => this.handleMouseMove(e);
   private boundHandleDocumentClick = (e: Event) => this.handleDocumentClick(e);
 
-  // Track last rendered settings to avoid unnecessary re-renders when settings panel is open
-  private lastRenderedSettings: string | null = null;
-
-  static get observedAttributes() {
-    return ['theme', 'output-level', 'scope-color', 'disabled'];
-  }
-
-  constructor() {
-    super();
-
-    // Create shadow DOM
-    this.shadow = this.attachShadow({ mode: 'open' });
-
-    // Create style element
-    this.styleElement = document.createElement('style');
-    this.styleElement.textContent = componentStyles;
-
-    // Create content container
-    this.contentElement = document.createElement('div');
-    this.contentElement.className = 'annotation-root';
-
-    this.shadow.appendChild(this.styleElement);
-    this.shadow.appendChild(this.contentElement);
-  }
+  // Textarea ref for autofocus
+  private textareaRef: Ref<HTMLTextAreaElement> = createRef();
 
   connectedCallback() {
+    super.connectedCallback();
+
     // Initialize core
     this.core = createAnnotationCore({
       settings: this.getSettingsFromAttributes(),
@@ -101,20 +143,31 @@ export class AnnotationElement extends HTMLElement {
     });
 
     // Subscribe to state changes
-    this.unsubscribe = this.core.subscribe((state) => this.render(state));
+    this.unsubscribe = this.core.subscribe((state) => {
+      this.appState = state;
+      // Reset popup comment when popup closes or opens for a different scope
+      if (!state.popupVisible) {
+        this.popupComment = '';
+      } else if (state.popupAnnotationId) {
+        const scope = state.scopes.get(state.popupAnnotationId);
+        this.popupComment = scope?.comment || '';
+      }
+      this.requestUpdate();
+    });
 
     // Set up event listeners
-    this.setupEventListeners();
+    document.addEventListener('mousemove', this.boundHandleMouseMove);
+    document.addEventListener('click', this.boundHandleDocumentClick);
+    window.addEventListener('resize', this.boundHandleResize);
 
-    // Initial render
-    this.render(this.core.store.getState());
-
-    // Set theme attribute for CSS
+    // Initial state
+    this.appState = this.core.store.getState();
     this.updateThemeAttribute();
   }
 
   disconnectedCallback() {
-    // Clean up
+    super.disconnectedCallback();
+
     if (this.unsubscribe) {
       this.unsubscribe();
       this.unsubscribe = null;
@@ -130,28 +183,30 @@ export class AnnotationElement extends HTMLElement {
     }
   }
 
-  attributeChangedCallback(name: string, oldValue: string | null, newValue: string | null) {
-    if (oldValue === newValue || !this.core) return;
+  updated(changedProperties: Map<string, unknown>) {
+    super.updated(changedProperties);
 
-    switch (name) {
-      case 'theme':
-        this.core.updateSettings({ theme: (newValue as ThemeMode) || 'auto' });
-        this.updateThemeAttribute();
-        break;
+    // Handle attribute changes
+    if (changedProperties.has('theme') && this.core) {
+      this.core.updateSettings({ theme: this.theme });
+      this.updateThemeAttribute();
+    }
 
-      case 'output-level':
-        this.core.updateSettings({ outputLevel: (newValue as OutputLevel) || 'standard' });
-        break;
+    if (changedProperties.has('outputLevel') && this.core) {
+      this.core.updateSettings({ outputLevel: this.outputLevel });
+    }
 
-      case 'scope-color':
-        this.core.updateSettings({ scopeColor: newValue || '#AF52DE' });
-        break;
+    if (changedProperties.has('scopeColor') && this.core) {
+      this.core.updateSettings({ scopeColor: this.scopeColor });
+    }
 
-      case 'disabled':
-        if (newValue !== null) {
-          this.core.deactivate();
-        }
-        break;
+    if (changedProperties.has('disabled') && this.core && this.disabled) {
+      this.core.deactivate();
+    }
+
+    // Focus textarea when popup opens
+    if (this.appState?.popupVisible && this.textareaRef.value) {
+      this.textareaRef.value.focus();
     }
   }
 
@@ -190,19 +245,16 @@ export class AnnotationElement extends HTMLElement {
   private getSettingsFromAttributes(): Partial<Settings> {
     const settings: Partial<Settings> = {};
 
-    const theme = this.getAttribute('theme');
-    if (theme === 'light' || theme === 'dark' || theme === 'auto') {
-      settings.theme = theme;
+    if (this.theme === 'light' || this.theme === 'dark' || this.theme === 'auto') {
+      settings.theme = this.theme;
     }
 
-    const outputLevel = this.getAttribute('output-level');
-    if (outputLevel === 'compact' || outputLevel === 'standard' || outputLevel === 'detailed' || outputLevel === 'forensic') {
-      settings.outputLevel = outputLevel;
+    if (this.outputLevel === 'compact' || this.outputLevel === 'standard' || this.outputLevel === 'detailed' || this.outputLevel === 'forensic') {
+      settings.outputLevel = this.outputLevel;
     }
 
-    const scopeColor = this.getAttribute('scope-color');
-    if (scopeColor) {
-      settings.scopeColor = scopeColor;
+    if (this.scopeColor) {
+      settings.scopeColor = this.scopeColor;
     }
 
     return settings;
@@ -215,39 +267,9 @@ export class AnnotationElement extends HTMLElement {
     const resolved = resolveTheme(theme);
 
     this.setAttribute('data-theme', theme);
-    // Also set resolved theme for CSS
     if (theme === 'auto') {
       this.setAttribute('data-resolved-theme', resolved);
     }
-  }
-
-  private setupEventListeners() {
-    // Handle clicks on toolbar buttons
-    this.shadow.addEventListener('click', this.handleClick.bind(this));
-
-    // Handle mouse events for hover
-    this.shadow.addEventListener('mouseover', this.handleMouseOver.bind(this));
-    this.shadow.addEventListener('mouseout', this.handleMouseOut.bind(this));
-
-    // Track mouse position for tooltip
-    document.addEventListener('mousemove', this.boundHandleMouseMove);
-
-    // Handle keyboard in popup
-    this.shadow.addEventListener('keydown', this.handleKeyDown.bind(this) as EventListener);
-
-    // Handle IME composition
-    this.shadow.addEventListener('compositionstart', () => { this.isComposing = true; });
-    this.shadow.addEventListener('compositionend', () => {
-      this.isComposing = false;
-      if (this.core) this.render(this.core.store.getState());
-    });
-
-    // Handle select change for settings
-    this.shadow.addEventListener('change', this.handleChange.bind(this));
-
-    // Close settings panel when clicking outside
-    document.addEventListener('click', this.boundHandleDocumentClick);
-    window.addEventListener('resize', this.boundHandleResize);
   }
 
   private handleWindowResize() {
@@ -260,7 +282,6 @@ export class AnnotationElement extends HTMLElement {
     const newScopes = new Map(state.scopes);
     for (const [id, scope] of newScopes) {
       if (!scope.element) continue;
-      // Verify element is still in the DOM
       if (!scope.element.isConnected) continue;
 
       const rect = scope.element.getBoundingClientRect();
@@ -279,8 +300,7 @@ export class AnnotationElement extends HTMLElement {
       this.core.store.setState({ scopes: newScopes });
     }
 
-    // Reposition toolbar (render will also be triggered by state change if scopes updated)
-    this.render(this.core.store.getState());
+    this.requestUpdate();
   }
 
   private handleDocumentClick(event: Event) {
@@ -289,7 +309,6 @@ export class AnnotationElement extends HTMLElement {
     const state = this.core.store.getState();
     if (!state.settingsPanelVisible) return;
 
-    // Check if click was inside the Annotation element
     const path = event.composedPath();
     const clickedInside = path.some((el) => el === this);
 
@@ -298,9 +317,9 @@ export class AnnotationElement extends HTMLElement {
     }
   }
 
-  private handleChange(event: Event) {
-    const target = event.target as HTMLElement;
-    this.handleSettingChange(target);
+  private handleMouseMove(event: MouseEvent) {
+    this.mouseX = event.clientX;
+    this.mouseY = event.clientY;
   }
 
   private handleClick(event: Event) {
@@ -372,17 +391,14 @@ export class AnnotationElement extends HTMLElement {
     }
 
     // Handle settings panel changes
-    const settingAttr = target.closest('[data-setting]')?.getAttribute('data-setting');
-    if (settingAttr) {
-      this.handleSettingChange(target);
+    const settingElement = target.closest('[data-setting]') as HTMLElement;
+    if (settingElement) {
+      this.handleSettingChange(settingElement);
     }
   }
 
-  private handleSettingChange(target: HTMLElement) {
+  private handleSettingChange(settingElement: HTMLElement) {
     if (!this.core) return;
-
-    const settingElement = target.closest('[data-setting]') as HTMLElement;
-    if (!settingElement) return;
 
     const setting = settingElement.getAttribute('data-setting');
     const value = settingElement.getAttribute('data-value');
@@ -420,7 +436,7 @@ export class AnnotationElement extends HTMLElement {
 
     if (marker) {
       this.hoveredMarkerId = marker.getAttribute('data-scope-id');
-      this.render(this.core!.store.getState());
+      this.requestUpdate();
     }
   }
 
@@ -430,22 +446,13 @@ export class AnnotationElement extends HTMLElement {
 
     if (marker) {
       this.hoveredMarkerId = null;
-      this.render(this.core!.store.getState());
+      this.requestUpdate();
     }
   }
 
-  private handleMouseMove(event: MouseEvent) {
-    this.mouseX = event.clientX;
-    this.mouseY = event.clientY;
-  }
-
-  private handleKeyDown(event: KeyboardEvent) {
-    const target = event.target as HTMLElement;
-
-    if (!target.matches('[data-popup-input]')) return;
-
-    // Submit on Enter (unless composing or shift held)
-    if (event.key === 'Enter' && !event.shiftKey && !this.isComposing) {
+  private handlePopupKeyDown(event: KeyboardEvent) {
+    // Submit on Enter (unless shift held for newline)
+    if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
       this.handlePopupSubmit();
     }
@@ -457,12 +464,16 @@ export class AnnotationElement extends HTMLElement {
     }
   }
 
-  private handlePopupSubmit() {
-    if (!this.core) return;
+  private handlePopupInput(event: Event) {
+    const textarea = event.target as HTMLTextAreaElement;
+    this.popupComment = textarea.value;
+  }
 
-    const state = this.core.store.getState();
-    const textarea = this.shadow.querySelector('[data-popup-input]') as HTMLTextAreaElement;
-    const comment = textarea?.value?.trim() || '';
+  private handlePopupSubmit() {
+    if (!this.core || !this.appState) return;
+
+    const state = this.appState;
+    const comment = this.popupComment.trim();
 
     if (state.popupAnnotationId) {
       // Update existing scope
@@ -473,12 +484,10 @@ export class AnnotationElement extends HTMLElement {
         const element = state.multiSelectElements[i];
         const elementInfo = state.multiSelectInfos[i];
 
-        // Position marker at element center
         const rect = element.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
 
-        // Convert to document coords for non-fixed elements
         const isFixed = elementInfo.isFixed;
         const clickX = centerX;
         const clickY = isFixed ? centerY : centerY + window.scrollY;
@@ -490,13 +499,10 @@ export class AnnotationElement extends HTMLElement {
         });
       }
     } else if (state.hoveredElement && state.popupElementInfo) {
-      // Single element selection
-      // Convert viewport coords to document coords for non-fixed elements
       const isFixed = state.popupElementInfo.isFixed;
       const clickX = state.popupClickX;
       const clickY = isFixed ? state.popupClickY : state.popupClickY + window.scrollY;
 
-      // Create new scope with click position
       this.core.scopes.addScope(state.hoveredElement, comment, {
         clickX,
         clickY,
@@ -507,11 +513,10 @@ export class AnnotationElement extends HTMLElement {
   }
 
   private handlePopupDelete() {
-    if (!this.core) return;
+    if (!this.core || !this.appState) return;
 
-    const state = this.core.store.getState();
-    if (state.popupAnnotationId) {
-      this.core.scopes.deleteScope(state.popupAnnotationId);
+    if (this.appState.popupAnnotationId) {
+      this.core.scopes.deleteScope(this.appState.popupAnnotationId);
       this.core.hidePopup();
     }
   }
@@ -526,19 +531,94 @@ export class AnnotationElement extends HTMLElement {
     );
   }
 
-  private render(state: AppState) {
+  /**
+   * Render popup using Lit's html template for proper IME/input handling
+   */
+  private renderPopupTemplate(state: AppState) {
+    if (!state.popupVisible) return nothing;
+
+    const existingScope = state.popupAnnotationId ? state.scopes.get(state.popupAnnotationId) : null;
+    const elementInfo = existingScope?.elementInfo || state.popupElementInfo;
+    const isMultiSelect = state.multiSelectInfos.length > 1;
+    const isEditing = !!existingScope;
+
+    if (!elementInfo && !existingScope) return nothing;
+
+    const info = elementInfo!;
+    const clickX = existingScope ? existingScope.clickX : state.popupClickX;
+    const clickY = existingScope ? existingScope.clickY : state.popupClickY;
+    const position = calculatePopupPosition(clickX, clickY);
+
+    // Build header content
+    const headerContent = isMultiSelect
+      ? html`
+          <div class="popup-multiselect-header">
+            <div class="popup-element">${t('popup.elementsSelected', { count: state.multiSelectInfos.length })}</div>
+            <ul class="popup-element-list">
+              ${state.multiSelectInfos.slice(0, 5).map(i => html`<li>${i.humanReadable}</li>`)}
+              ${state.multiSelectInfos.length > 5 ? html`<li>${t('popup.andMore', { count: state.multiSelectInfos.length - 5 })}</li>` : nothing}
+            </ul>
+          </div>
+        `
+      : html`
+          <div>
+            <div class="popup-element">${info.humanReadable}</div>
+            <div class="popup-path">${info.selectorPath}</div>
+          </div>
+        `;
+
+    return html`
+      <div
+        class="popup-popover ${this.popupShaking ? 'shake' : ''}"
+        style="left: ${position.left}; top: ${position.top};"
+        data-annotation-popup
+      >
+        <div class="popup-header">
+          ${headerContent}
+          <button class="popup-close" data-action="popup-close" title="${t('popup.close')}">
+            ${unsafeHTML(icons.x)}
+          </button>
+        </div>
+
+        <div class="popup-body">
+          <textarea
+            ${ref(this.textareaRef)}
+            class="popup-textarea"
+            placeholder="${isMultiSelect ? t('popup.addFeedbackMulti') : t('popup.addFeedback')}"
+            .value=${this.popupComment}
+            @input=${this.handlePopupInput}
+            @keydown=${this.handlePopupKeyDown}
+          ></textarea>
+        </div>
+
+        <div class="popup-footer">
+          ${isEditing ? html`
+            <button class="popup-btn danger" data-action="popup-delete">
+              ${t('popup.delete')}
+            </button>
+          ` : nothing}
+          <button class="popup-btn" data-action="popup-cancel">
+            ${t('popup.cancel')}
+          </button>
+          <button class="popup-btn primary" data-action="popup-submit">
+            ${isEditing ? t('popup.save') : isMultiSelect ? t('popup.addScopes', { count: state.multiSelectInfos.length }) : t('popup.addScope')}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  render() {
+    if (!this.appState || !this.core) {
+      return nothing;
+    }
+
+    const state = this.appState;
     const settings = state.settings;
     const scopes = Array.from(state.scopes.values()).sort((a, b) => a.number - b.number);
     const resolvedTheme = resolveTheme(settings.theme);
 
-    // When composing (IME input like Chinese), skip re-renders to prevent popup from being destroyed
-    // This prevents the textarea from losing focus and breaking IME composition
-    if (this.isComposing && state.popupVisible) {
-      return;
-    }
-
-    // When settings panel is open, skip re-renders unless settings/visibility actually changed
-    // This prevents the dropdown from closing when DOM is rebuilt
+    // Track animations for settings panel
     if (state.settingsPanelVisible) {
       const currentSettingsKey = JSON.stringify({
         settings,
@@ -549,37 +629,31 @@ export class AnnotationElement extends HTMLElement {
         theme: resolvedTheme,
       });
 
-      if (this.lastRenderedSettings === currentSettingsKey) {
-        // Nothing relevant changed, skip re-render to keep dropdown open
-        return;
+      if (this.lastRenderedSettings !== currentSettingsKey) {
+        this.lastRenderedSettings = currentSettingsKey;
       }
-      this.lastRenderedSettings = currentSettingsKey;
     } else {
       this.lastRenderedSettings = null;
     }
 
-    let html = '';
-
-    // Toolbar
+    // Toolbar HTML (using existing templates with unsafeHTML)
+    let toolbarHtml = '';
     if (state.toolbarExpanded) {
-      // Only show entrance animation on first expand
       const showEntranceAnimation = !this.toolbarShownOnce;
       if (showEntranceAnimation) {
         this.toolbarShownOnce = true;
       }
 
-      // Track settings panel animation
       let settingsPanelHtml = '';
       if (state.settingsPanelVisible) {
         const skipSettingsAnimation = this.settingsPanelAnimated;
         settingsPanelHtml = renderSettingsPanel({ settings, skipAnimation: skipSettingsAnimation });
         this.settingsPanelAnimated = true;
       } else {
-        // Reset when panel is hidden so animation plays again on next open
         this.settingsPanelAnimated = false;
       }
 
-      html += renderExpandedToolbar({
+      toolbarHtml = renderExpandedToolbar({
         scopeCount: scopes.length,
         isFrozen: state.isFrozen,
         markersVisible: state.markersVisible,
@@ -590,21 +664,19 @@ export class AnnotationElement extends HTMLElement {
         settingsPanelHtml,
       });
     } else {
-      // Reset the flag when toolbar is collapsed so animation plays again on next expand
       this.toolbarShownOnce = false;
       this.settingsPanelAnimated = false;
-      html += renderCollapsedToolbar(scopes.length);
+      toolbarHtml = renderCollapsedToolbar(scopes.length);
     }
 
-    // Markers
+    // Markers HTML
+    let markersHtml = '';
     if (state.toolbarExpanded && state.markersVisible) {
-      // Show pending marker(s) if popup is open for new scope(s) (not editing existing)
       let pendingMarker = null;
       let pendingMarkers: Array<{ x: number; y: number; isFixed: boolean }> = [];
 
       if (state.popupVisible && !state.popupAnnotationId) {
         if (state.multiSelectElements.length > 1) {
-          // Multi-select: create pending markers for all selected elements
           pendingMarkers = state.multiSelectElements.map((el, i) => {
             const rect = el.getBoundingClientRect();
             const centerX = rect.left + rect.width / 2;
@@ -618,7 +690,6 @@ export class AnnotationElement extends HTMLElement {
             };
           });
         } else if (state.pendingMarkerX !== 0) {
-          // Single selection: show one pending marker
           pendingMarker = {
             x: state.pendingMarkerX,
             y: state.pendingMarkerY,
@@ -627,7 +698,6 @@ export class AnnotationElement extends HTMLElement {
         }
       }
 
-      // Track marker tooltip animation - skip if same marker is still hovered
       const skipTooltipAnimation = this.hoveredMarkerId !== null && this.hoveredMarkerId === this.animatedMarkerTooltipId;
       if (this.hoveredMarkerId !== null) {
         this.animatedMarkerTooltipId = this.hoveredMarkerId;
@@ -635,7 +705,7 @@ export class AnnotationElement extends HTMLElement {
         this.animatedMarkerTooltipId = null;
       }
 
-      html += renderMarkers({
+      markersHtml = renderMarkers({
         scopes,
         hoveredMarkerId: this.hoveredMarkerId,
         exitingMarkers: state.exitingMarkers,
@@ -648,65 +718,70 @@ export class AnnotationElement extends HTMLElement {
       });
     }
 
-    // Popup
-    if (state.popupVisible) {
-      const existingScope = state.popupAnnotationId ? state.scopes.get(state.popupAnnotationId) : null;
-      html += renderPopup({
-        elementInfo: existingScope?.elementInfo || state.popupElementInfo,
-        existingScope: existingScope || null,
-        isShaking: this.popupShaking,
-        clickX: existingScope ? existingScope.clickX : state.popupClickX,
-        clickY: existingScope ? existingScope.clickY : state.popupClickY,
-        multiSelectInfos: state.multiSelectInfos,
-      });
-    }
-
-    // Hover tooltip (only when not showing popup)
+    // Hover tooltip HTML
+    let tooltipHtml = '';
+    let highlightHtml = '';
     if (state.toolbarExpanded && !state.popupVisible && state.hoveredElementInfo && settings.showTooltips) {
-      html += renderHoverTooltip({
+      tooltipHtml = renderHoverTooltip({
         elementInfo: state.hoveredElementInfo,
         x: this.mouseX,
         y: this.mouseY,
       });
 
-      // Highlight
       if (state.hoveredElement) {
         const rect = state.hoveredElement.getBoundingClientRect();
-        html += renderHighlight(rect, settings.scopeColor);
+        highlightHtml = renderHighlight(rect, settings.scopeColor);
       }
     }
 
-    // Selection rectangle and preview highlights
+    // Selection rectangle HTML
+    let selectionHtml = '';
     if (state.isSelecting && state.selectionRect) {
       const normalized = normalizeRect(state.selectionRect);
-      html += renderSelectionRect(normalized, settings.scopeColor);
+      selectionHtml = renderSelectionRect(normalized, settings.scopeColor);
 
-      // Render highlights for elements within selection
       for (const element of state.selectionPreviewElements) {
         const rect = element.getBoundingClientRect();
-        html += renderHighlight(rect, settings.scopeColor);
+        selectionHtml += renderHighlight(rect, settings.scopeColor);
       }
     }
 
-    this.contentElement.innerHTML = html;
-
-    // Position toolbar
-    this.positionToolbar(state);
-
-    // Focus textarea in popup
-    if (state.popupVisible) {
-      const textarea = this.shadow.querySelector('[data-popup-input]') as HTMLTextAreaElement;
-      textarea?.focus();
-    }
+    return html`
+      <div
+        class="annotation-root"
+        @click=${this.handleClick}
+        @change=${this.handleClick}
+        @mouseover=${this.handleMouseOver}
+        @mouseout=${this.handleMouseOut}
+      >
+        ${unsafeHTML(toolbarHtml)}
+        ${unsafeHTML(markersHtml)}
+        ${this.renderPopupTemplate(state)}
+        ${unsafeHTML(tooltipHtml)}
+        ${unsafeHTML(highlightHtml)}
+        ${unsafeHTML(selectionHtml)}
+      </div>
+    `;
   }
 
-  private positionToolbar(state: AppState) {
-    const toolbar = this.shadow.querySelector('.toolbar') as HTMLElement;
+  // Position toolbar after render
+  protected firstUpdated() {
+    this.positionToolbar();
+  }
+
+  protected willUpdate() {
+    // Position toolbar on each update
+    requestAnimationFrame(() => this.positionToolbar());
+  }
+
+  private positionToolbar() {
+    if (!this.appState) return;
+
+    const toolbar = this.renderRoot.querySelector('.toolbar') as HTMLElement;
     if (!toolbar) return;
 
-    // Default to bottom-right
     const padding = 20;
-    const { toolbarPosition } = state.settings;
+    const { toolbarPosition } = this.appState.settings;
 
     let x: number, y: number;
 
@@ -730,10 +805,9 @@ export class AnnotationElement extends HTMLElement {
         break;
     }
 
-    // Use custom position if set
-    if (state.toolbarPosition.x !== 20 || state.toolbarPosition.y !== 20) {
-      x = state.toolbarPosition.x;
-      y = state.toolbarPosition.y;
+    if (this.appState.toolbarPosition.x !== 20 || this.appState.toolbarPosition.y !== 20) {
+      x = this.appState.toolbarPosition.x;
+      y = this.appState.toolbarPosition.y;
     }
 
     toolbar.style.left = `${x}px`;

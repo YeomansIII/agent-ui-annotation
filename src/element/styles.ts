@@ -1,7 +1,8 @@
 /**
- * Shadow DOM styles for Annotation web component
+ * Shadow DOM styles for Annotation web component (Lit version)
  */
 
+import { css, unsafeCSS } from 'lit';
 import { LIGHT_THEME, DARK_THEME, SHARED_VARS } from '../themes/variables';
 
 /**
@@ -16,20 +17,20 @@ function varsToCSS(vars: Record<string, string>): string {
 /**
  * Main stylesheet for the Annotation web component
  */
-export const componentStyles = `
+export const componentStyles = css`
   /* CSS Variables */
   :host {
-    ${varsToCSS(SHARED_VARS)}
-    ${varsToCSS(LIGHT_THEME)}
+    ${unsafeCSS(varsToCSS(SHARED_VARS))}
+    ${unsafeCSS(varsToCSS(LIGHT_THEME))}
   }
 
   :host([data-theme="dark"]) {
-    ${varsToCSS(DARK_THEME)}
+    ${unsafeCSS(varsToCSS(DARK_THEME))}
   }
 
   @media (prefers-color-scheme: dark) {
     :host([data-theme="auto"]) {
-      ${varsToCSS(DARK_THEME)}
+      ${unsafeCSS(varsToCSS(DARK_THEME))}
     }
   }
 
