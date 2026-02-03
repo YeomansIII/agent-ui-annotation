@@ -89,6 +89,14 @@ export function createHoverDetection(
    * Handle mouse leave to clear hover state
    */
   const handleMouseLeave = (event: MouseEvent) => {
+    const state = store.getState();
+
+    // Don't clear hover state when popup is open (preserves element for submit)
+    // This also prevents IME composition popups from clearing the state
+    if (state.popupVisible || state.settingsPanelVisible) {
+      return;
+    }
+
     // Only clear if leaving the document
     const relatedTarget = event.relatedTarget as Element | null;
     if (relatedTarget && document.documentElement.contains(relatedTarget)) {

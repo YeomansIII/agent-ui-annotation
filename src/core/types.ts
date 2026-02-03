@@ -113,10 +113,14 @@ export interface Scope {
   selectedText: string | null;
   /** Whether created via multi-select */
   isMultiSelect: boolean;
-  /** Click X coordinate (viewport-relative) */
+  /** Click X coordinate (document-relative for non-fixed, viewport-relative for fixed) */
   clickX: number;
-  /** Click Y coordinate (viewport-relative) */
+  /** Click Y coordinate (document-relative for non-fixed, viewport-relative for fixed) */
   clickY: number;
+  /** Offset as percentage (0-1) from element's left edge at creation time (for resize repositioning) */
+  offsetX?: number;
+  /** Offset as percentage (0-1) from element's top edge at creation time (for resize repositioning) */
+  offsetY?: number;
 }
 
 /** Type alias for Annotation (same as Scope) */

@@ -38,6 +38,8 @@ export function createScope(
     includeForensic?: boolean;
     clickX?: number;
     clickY?: number;
+    offsetX?: number;
+    offsetY?: number;
   } = {}
 ): Scope {
   const {
@@ -46,6 +48,8 @@ export function createScope(
     includeForensic = false,
     clickX = 0,
     clickY = 0,
+    offsetX,
+    offsetY,
   } = options;
 
   const now = Date.now();
@@ -63,6 +67,8 @@ export function createScope(
     isMultiSelect,
     clickX,
     clickY,
+    offsetX,
+    offsetY,
   };
 }
 
@@ -127,6 +133,8 @@ export function createAnnotationManager(
       isMultiSelect?: boolean;
       clickX?: number;
       clickY?: number;
+      offsetX?: number;
+      offsetY?: number;
     }
   ): Scope => {
     const state = store.getState();

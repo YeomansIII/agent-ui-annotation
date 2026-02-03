@@ -278,29 +278,35 @@ export class AnnotationElement extends LitElement {
     const state = this.core.store.getState();
 
     // Recompute marker positions from live element references
-    let updated = false;
-    const newScopes = new Map(state.scopes);
-    for (const [id, scope] of newScopes) {
-      if (!scope.element) continue;
-      if (!scope.element.isConnected) continue;
+    const newScopes = new Map<string, typeof state.scopes extends Map<string, infer V> ? V : never>();
+    for (const [id, scope] of state.scopes) {
+      if (!scope.element || !scope.element.isConnected) {
+        // Keep scope as-is if element is gone
+        newScopes.set(id, scope);
+        continue;
+      }
 
       const rect = scope.element.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      const newClickX = centerX;
-      const newClickY = scope.elementInfo.isFixed ? centerY : centerY + window.scrollY;
 
-      if (newClickX !== scope.clickX || newClickY !== scope.clickY) {
-        newScopes.set(id, { ...scope, clickX: newClickX, clickY: newClickY });
-        updated = true;
-      }
+      // Use stored offset percentage to maintain relative position within element
+      // If offset isn't stored (legacy scopes), fall back to center (0.5)
+      const offsetXPercent = scope.offsetX ?? 0.5;
+      const offsetYPercent = scope.offsetY ?? 0.5;
+
+      const newClickX = rect.left + (rect.width * offsetXPercent);
+      const newClickY = scope.elementInfo.isFixed
+        ? rect.top + (rect.height * offsetYPercent)
+        : rect.top + (rect.height * offsetYPercent) + window.scrollY;
+
+      // Always create new scope object to ensure state change is detected
+      newScopes.set(id, { ...scope, clickX: newClickX, clickY: newClickY });
     }
 
-    if (updated) {
-      this.core.store.setState({ scopes: newScopes });
-    }
-
-    this.requestUpdate();
+    // Always update state with fresh scopes and scroll position
+    this.core.store.setState({
+      scopes: newScopes,
+      scrollY: window.scrollY,
+    });
   }
 
   private handleDocumentClick(event: Event) {
@@ -451,8 +457,9 @@ export class AnnotationElement extends LitElement {
   }
 
   private handlePopupKeyDown(event: KeyboardEvent) {
-    // Submit on Enter (unless shift held for newline)
-    if (event.key === 'Enter' && !event.shiftKey) {
+    // Submit on Enter (unless shift held for newline or IME is composing)
+    // event.isComposing is true when Enter is pressed to confirm IME character selection
+    if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
       event.preventDefault();
       this.handlePopupSubmit();
     }
@@ -492,9 +499,15 @@ export class AnnotationElement extends LitElement {
         const clickX = centerX;
         const clickY = isFixed ? centerY : centerY + window.scrollY;
 
+        // For multi-select, marker is centered so offset is 0.5 (50%)
+        const offsetX = 0.5;
+        const offsetY = 0.5;
+
         this.core.scopes.addScope(element, comment, {
           clickX,
           clickY,
+          offsetX,
+          offsetY,
           isMultiSelect: true,
         });
       }
@@ -503,9 +516,16 @@ export class AnnotationElement extends LitElement {
       const clickX = state.popupClickX;
       const clickY = isFixed ? state.popupClickY : state.popupClickY + window.scrollY;
 
+      // Calculate offset as percentage (0-1) from element's top-left corner
+      const rect = state.hoveredElement.getBoundingClientRect();
+      const offsetX = (state.popupClickX - rect.left) / rect.width;
+      const offsetY = (state.popupClickY - rect.top) / rect.height;
+
       this.core.scopes.addScope(state.hoveredElement, comment, {
         clickX,
         clickY,
+        offsetX,
+        offsetY,
       });
     }
 
