@@ -25,6 +25,7 @@ interface SerializedAnnotation {
   isMultiSelect: boolean;
   clickX: number;
   clickY: number;
+  context?: Record<string, unknown>;
 }
 
 /**
@@ -49,6 +50,7 @@ function serializeAnnotation(annotation: Annotation): SerializedAnnotation {
     isMultiSelect: annotation.isMultiSelect,
     clickX: annotation.clickX,
     clickY: annotation.clickY,
+    context: annotation.context,
   };
 }
 
