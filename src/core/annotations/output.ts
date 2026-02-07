@@ -67,6 +67,11 @@ function generateDetailedAnnotation(annotation: Annotation): string {
   // Location info
   lines.push(`**${tOutput('output.location')}:** \`${info.selectorPath}\``);
 
+  if (info.componentPath) {
+    const frameworkPrefix = info.componentFramework ? `${info.componentFramework}: ` : '';
+    lines.push(`**Component:** ${frameworkPrefix}${info.componentPath}`);
+  }
+
   if (info.id) {
     lines.push(`**${tOutput('output.id')}:** ${info.id}`);
   }
@@ -147,6 +152,11 @@ function generateForensicAnnotation(annotation: Annotation, _env: EnvironmentInf
   // Element details
   lines.push(`#### ${tOutput('output.elementDetails')}`);
   lines.push(`- **${tOutput('output.tag')}:** ${info.tagName}`);
+
+  if (info.componentPath) {
+    const frameworkPrefix = info.componentFramework ? `${info.componentFramework}: ` : '';
+    lines.push(`- **Component:** ${frameworkPrefix}${info.componentPath}`);
+  }
 
   if (info.id) {
     lines.push(`- **${tOutput('output.id')}:** ${info.id}`);

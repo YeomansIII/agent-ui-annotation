@@ -8,11 +8,31 @@ initI18n({ locale: 'en' });
 export default function App() {
   const { ref, activate, copyOutput } = useAgentUIAnnotation();
 
+  const CTAButton = ({ label }: { label: string }) => (
+    <button className="cta-button">{label}</button>
+  );
+
+  const HeroSection = () => (
+    <section className="hero">
+      <h2>Ship UI changes faster</h2>
+      <p>Annotate real UI elements with precision and context.</p>
+      <CTAButton label="Start annotating" />
+    </section>
+  );
+
+  const LandingPage = () => (
+    <div className="landing">
+      <HeroSection />
+    </div>
+  );
+
   return (
     <>
       <h1>Agent UI Annotation - React</h1>
       <button onClick={activate}>Activate</button>
       <button onClick={() => copyOutput()}>Copy Output</button>
+
+      <LandingPage />
 
       <AgentUIAnnotation
         ref={ref}
