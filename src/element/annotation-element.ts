@@ -647,6 +647,7 @@ export class AnnotationElement extends LitElement {
           <div>
             <div class="popup-element">${info.humanReadable}</div>
             <div class="popup-path">${info.selectorPath}</div>
+            ${info.componentPath ? html`<div class="popup-component">${info.componentPath}</div>` : nothing}
           </div>
         `;
 

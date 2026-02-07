@@ -30,6 +30,7 @@ import { getAccessibilityInfo, getContainingLandmark, describeLandmark } from '.
 import { getForensicStyles } from './styles';
 import { isFixedOrSticky } from '../utils/fixed-detection';
 import { getMeaningfulClasses } from '../utils/css-cleaner';
+import { getComponentPathInfo } from './component-path';
 
 const MAX_TEXT_LENGTH = 200;
 
@@ -102,10 +103,13 @@ export function getInnerText(element: Element): string {
  * @param includeForensic - Whether to include forensic details (computed styles)
  */
 export function collectElementInfo(element: Element, includeForensic: boolean = false): ElementInfo {
+  const componentInfo = getComponentPathInfo(element);
   return {
     humanReadable: identifyElement(element),
     selectorPath: generateSelectorPath(element),
     fullDomPath: generateFullDomPath(element),
+    componentPath: componentInfo.path,
+    componentFramework: componentInfo.framework,
     tagName: element.tagName.toLowerCase(),
     id: element.id || null,
     classes: getMeaningfulClasses(element),

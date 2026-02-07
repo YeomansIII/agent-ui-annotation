@@ -96,6 +96,12 @@ export const componentStyles = css`
     }
   }
 
+      .popup-component {
+        font-size: var(--as-font-size-xs);
+        color: var(--as-text-tertiary);
+        margin-top: 2px;
+      }
+
   /* Toolbar buttons */
   .toolbar-btn {
     display: flex;
@@ -535,6 +541,12 @@ export const componentStyles = css`
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
+    .hover-component {
+      font-size: var(--as-font-size-xs);
+      color: var(--as-text-tertiary);
+      margin-top: 2px;
+    }
 
   /* Selection rectangle */
   .selection-rect {

@@ -72,6 +72,10 @@ export interface ElementInfo {
   selectorPath: string;
   /** Full DOM path for forensic output */
   fullDomPath: string;
+  /** Framework component path (if detected) */
+  componentPath: string | null;
+  /** Framework name for component path */
+  componentFramework: string | null;
   /** Element tag name */
   tagName: string;
   /** Element ID if present */
