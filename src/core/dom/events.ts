@@ -99,6 +99,33 @@ export function createEventHandlers(
 ) {
   let isActive = false;
 
+  const isFromAnnotationUI = (event: Event) => {
+    const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+    for (const target of path) {
+      if (target instanceof Element) {
+        if (target.tagName.toLowerCase() === 'agent-ui-annotation') {
+          return true;
+        }
+        if (target.hasAttribute && (
+          target.hasAttribute(DATA_TOOLBAR) ||
+          target.hasAttribute(DATA_MARKER) ||
+          target.hasAttribute(DATA_POPUP) ||
+          target.hasAttribute(DATA_SETTINGS)
+        )) {
+          return true;
+        }
+      }
+    }
+
+    const target = event.target as Element | null;
+    if (!target) return false;
+    if (target.tagName.toLowerCase() === 'agent-ui-annotation') return true;
+    const annotationElement = target.closest('agent-ui-annotation');
+    if (annotationElement) return true;
+
+    return isAnnotationElement(target);
+  };
+
   /**
    * Handle click events
    */
@@ -212,7 +239,27 @@ export function createEventHandlers(
   const handleKeyDown = (event: KeyboardEvent) => {
     const state = store.getState();
 
-    // Escape to cancel current operation
+    if (isFromAnnotationUI(event)) {
+      // Still allow Escape key to work for closing popups
+      if (event.key === 'Escape') {
+        if (state.popupVisible) {
+          store.setState({ popupVisible: false, popupAnnotationId: null });
+          event.preventDefault();
+        } else if (state.isSelecting) {
+          store.setState({ isSelecting: false, selectionRect: null });
+          event.preventDefault();
+        } else if (state.mode !== 'disabled') {
+          eventBus.emit('deactivate', undefined as never);
+          event.preventDefault();
+        }
+      }
+      // For all other keys when typing in annotation UI, prevent propagation
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      return;
+    }
+
+    // Escape to cancel current operation (when not in annotation UI)
     if (event.key === 'Escape') {
       if (state.popupVisible) {
         store.setState({ popupVisible: false, popupAnnotationId: null });
@@ -224,6 +271,20 @@ export function createEventHandlers(
         eventBus.emit('deactivate', undefined as never);
         event.preventDefault();
       }
+    }
+  };
+
+  const handleKeyUp = (event: KeyboardEvent) => {
+    if (isFromAnnotationUI(event)) {
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
+  };
+
+  const handleKeyPress = (event: KeyboardEvent) => {
+    if (isFromAnnotationUI(event)) {
+      event.stopPropagation();
+      event.stopImmediatePropagation();
     }
   };
 
@@ -239,6 +300,8 @@ export function createEventHandlers(
     document.addEventListener('mouseup', handleMouseUp, true);
     document.addEventListener('scroll', handleScroll, { passive: true });
     document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('keyup', handleKeyUp, true);
+    document.addEventListener('keypress', handleKeyPress, true);
 
     isActive = true;
   };
@@ -255,6 +318,8 @@ export function createEventHandlers(
     document.removeEventListener('mouseup', handleMouseUp, true);
     document.removeEventListener('scroll', handleScroll);
     document.removeEventListener('keydown', handleKeyDown, true);
+    document.removeEventListener('keyup', handleKeyUp, true);
+    document.removeEventListener('keypress', handleKeyPress, true);
 
     isActive = false;
   };
