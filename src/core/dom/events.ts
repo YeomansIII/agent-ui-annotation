@@ -106,36 +106,6 @@ export function createEventHandlers(
   let isActive = false;
 
   /**
-   * Check if an event originated from Annotation UI (including shadow DOM)
-   */
-  const isFromAnnotationUI = (event: Event) => {
-    const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
-    for (const target of path) {
-      if (target instanceof Element) {
-        if (target.tagName.toLowerCase() === 'agent-ui-annotation') {
-          return true;
-        }
-        if (target.hasAttribute && (
-          target.hasAttribute(DATA_TOOLBAR) ||
-          target.hasAttribute(DATA_MARKER) ||
-          target.hasAttribute(DATA_POPUP) ||
-          target.hasAttribute(DATA_SETTINGS)
-        )) {
-          return true;
-        }
-      }
-    }
-
-    const target = event.target as Element | null;
-    if (!target) return false;
-    if (target.tagName.toLowerCase() === 'agent-ui-annotation') return true;
-    const annotationElement = target.closest('agent-ui-annotation');
-    if (annotationElement) return true;
-
-    return isAnnotationElement(target);
-  };
-
-  /**
    * Handle Escape key for closing popups, canceling selection, or deactivating
    */
   const handleEscape = (state: AppState, event: KeyboardEvent): boolean => {
@@ -280,7 +250,7 @@ export function createEventHandlers(
     const state = store.getState();
 
     // Check if event originated from annotation UI
-    if (isFromAnnotationUI(event)) {
+    if (isAnnotationEvent(event)) {
       // Still allow Escape key to work for closing popups
       if (event.key === 'Escape') {
         handleEscape(state, event);
@@ -314,14 +284,7 @@ export function createEventHandlers(
     }
 
     // Prevent annotation UI events from propagating
-    if (isFromAnnotationUI(event)) {
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-    }
-  };
-
-  const handleKeyPress = (event: KeyboardEvent) => {
-    if (isFromAnnotationUI(event)) {
+    if (isAnnotationEvent(event)) {
       event.stopPropagation();
       event.stopImmediatePropagation();
     }
@@ -351,7 +314,6 @@ export function createEventHandlers(
     document.addEventListener('scroll', handleScroll, { passive: true });
     document.addEventListener('keydown', handleKeyDown, true);
     document.addEventListener('keyup', handleKeyUp, true);
-    document.addEventListener('keypress', handleKeyPress, true);
     window.addEventListener('blur', handleWindowBlur);
 
     isActive = true;
@@ -370,7 +332,6 @@ export function createEventHandlers(
     document.removeEventListener('scroll', handleScroll);
     document.removeEventListener('keydown', handleKeyDown, true);
     document.removeEventListener('keyup', handleKeyUp, true);
-    document.removeEventListener('keypress', handleKeyPress, true);
     window.removeEventListener('blur', handleWindowBlur);
 
     // Clean up passthrough state if it was active
