@@ -65,6 +65,7 @@ export interface TranslationStrings {
     location: string;
     selectedText: string;
     feedback: string;
+    component: string;
     domPath: string;
     selector: string;
     elementDetails: string;

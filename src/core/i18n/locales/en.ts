@@ -66,6 +66,7 @@ export const en: TranslationStrings = {
     location: 'Location',
     selectedText: 'Selected text',
     feedback: 'Feedback',
+    component: 'Component',
     domPath: 'DOM Path',
     selector: 'Selector',
     elementDetails: 'Element Details',

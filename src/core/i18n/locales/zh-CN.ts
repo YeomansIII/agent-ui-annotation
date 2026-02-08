@@ -66,6 +66,7 @@ export const zhCN: TranslationStrings = {
     location: '位置',
     selectedText: '选中文本',
     feedback: '反馈',
+    component: '组件',
     domPath: 'DOM 路径',
     selector: '选择器',
     elementDetails: '元素详情',

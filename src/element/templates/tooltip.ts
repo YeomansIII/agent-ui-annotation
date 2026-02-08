@@ -46,11 +46,15 @@ function calculateTooltipPosition(x: number, y: number): { left: string; top: st
 export function renderHoverTooltip(options: TooltipRenderOptions): string {
   const { elementInfo, x, y } = options;
   const pos = calculateTooltipPosition(x, y);
+  const componentLine = elementInfo.componentPath
+    ? `<div class="hover-component">${escapeHtml(elementInfo.componentPath)}</div>`
+    : '';
 
   return `
     <div class="hover-tooltip" style="left: ${pos.left}; top: ${pos.top};">
       <div class="hover-element">${escapeHtml(elementInfo.humanReadable)}</div>
       <div class="hover-path">${escapeHtml(elementInfo.selectorPath)}</div>
+      ${componentLine}
     </div>
   `;
 }

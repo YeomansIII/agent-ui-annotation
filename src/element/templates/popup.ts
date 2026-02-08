@@ -94,6 +94,7 @@ export function renderPopup(options: PopupRenderOptions): string {
       <div>
         <div class="popup-element">${escapeHtml(info.humanReadable)}</div>
         <div class="popup-path">${escapeHtml(info.selectorPath)}</div>
+        ${info.componentPath ? `<div class="popup-component">${escapeHtml(info.componentPath)}</div>` : ''}
       </div>
     `;
   }
