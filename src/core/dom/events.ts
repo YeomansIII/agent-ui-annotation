@@ -41,27 +41,32 @@ export function isAnnotationElement(element: Element | null): boolean {
 }
 
 /**
- * Check if a mouse event originated from within Annotation UI (including shadow DOM)
+ * Check if an event originated from within Annotation UI (including shadow DOM)
  */
-export function isAnnotationEvent(event: MouseEvent): boolean {
-  // Use composedPath to check the actual event path including shadow DOM
-  const path = event.composedPath();
-  for (const target of path) {
-    if (target instanceof Element) {
-      if (target.tagName.toLowerCase() === 'agent-ui-annotation') {
-        return true;
-      }
-      if (target.hasAttribute && (
-        target.hasAttribute(DATA_TOOLBAR) ||
-        target.hasAttribute(DATA_MARKER) ||
-        target.hasAttribute(DATA_POPUP) ||
-        target.hasAttribute(DATA_SETTINGS)
-      )) {
-        return true;
+export function isAnnotationEvent(event: Event): boolean {
+  const hasComposedPath = typeof event.composedPath === 'function';
+  if (hasComposedPath) {
+    const path = event.composedPath();
+    for (const target of path) {
+      if (target instanceof Element) {
+        if (target.tagName.toLowerCase() === 'agent-ui-annotation') {
+          return true;
+        }
+        if (target.hasAttribute && (
+          target.hasAttribute(DATA_TOOLBAR) ||
+          target.hasAttribute(DATA_MARKER) ||
+          target.hasAttribute(DATA_POPUP) ||
+          target.hasAttribute(DATA_SETTINGS)
+        )) {
+          return true;
+        }
       }
     }
+    return false;
   }
-  return false;
+
+  const target = event.target as Element | null;
+  return isAnnotationElement(target);
 }
 
 /**
@@ -99,31 +104,28 @@ export function createEventHandlers(
 ) {
   let isActive = false;
 
-  const isFromAnnotationUI = (event: Event) => {
-    const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
-    for (const target of path) {
-      if (target instanceof Element) {
-        if (target.tagName.toLowerCase() === 'agent-ui-annotation') {
-          return true;
-        }
-        if (target.hasAttribute && (
-          target.hasAttribute(DATA_TOOLBAR) ||
-          target.hasAttribute(DATA_MARKER) ||
-          target.hasAttribute(DATA_POPUP) ||
-          target.hasAttribute(DATA_SETTINGS)
-        )) {
-          return true;
-        }
-      }
+  const handleEscape = (state: AppState, event: KeyboardEvent): boolean => {
+    if (event.key !== 'Escape') return false;
+
+    if (state.popupVisible) {
+      store.setState({ popupVisible: false, popupAnnotationId: null });
+      event.preventDefault();
+      return true;
     }
 
-    const target = event.target as Element | null;
-    if (!target) return false;
-    if (target.tagName.toLowerCase() === 'agent-ui-annotation') return true;
-    const annotationElement = target.closest('agent-ui-annotation');
-    if (annotationElement) return true;
+    if (state.isSelecting) {
+      store.setState({ isSelecting: false, selectionRect: null });
+      event.preventDefault();
+      return true;
+    }
 
-    return isAnnotationElement(target);
+    if (state.mode !== 'disabled') {
+      eventBus.emit('deactivate', undefined as never);
+      event.preventDefault();
+      return true;
+    }
+
+    return true;
   };
 
   /**
@@ -239,20 +241,8 @@ export function createEventHandlers(
   const handleKeyDown = (event: KeyboardEvent) => {
     const state = store.getState();
 
-    if (isFromAnnotationUI(event)) {
-      // Still allow Escape key to work for closing popups
-      if (event.key === 'Escape') {
-        if (state.popupVisible) {
-          store.setState({ popupVisible: false, popupAnnotationId: null });
-          event.preventDefault();
-        } else if (state.isSelecting) {
-          store.setState({ isSelecting: false, selectionRect: null });
-          event.preventDefault();
-        } else if (state.mode !== 'disabled') {
-          eventBus.emit('deactivate', undefined as never);
-          event.preventDefault();
-        }
-      }
+    if (isAnnotationEvent(event)) {
+      handleEscape(state, event);
       // For all other keys when typing in annotation UI, prevent propagation
       event.stopPropagation();
       event.stopImmediatePropagation();
@@ -260,29 +250,11 @@ export function createEventHandlers(
     }
 
     // Escape to cancel current operation (when not in annotation UI)
-    if (event.key === 'Escape') {
-      if (state.popupVisible) {
-        store.setState({ popupVisible: false, popupAnnotationId: null });
-        event.preventDefault();
-      } else if (state.isSelecting) {
-        store.setState({ isSelecting: false, selectionRect: null });
-        event.preventDefault();
-      } else if (state.mode !== 'disabled') {
-        eventBus.emit('deactivate', undefined as never);
-        event.preventDefault();
-      }
-    }
+    handleEscape(state, event);
   };
 
   const handleKeyUp = (event: KeyboardEvent) => {
-    if (isFromAnnotationUI(event)) {
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-    }
-  };
-
-  const handleKeyPress = (event: KeyboardEvent) => {
-    if (isFromAnnotationUI(event)) {
+    if (isAnnotationEvent(event)) {
       event.stopPropagation();
       event.stopImmediatePropagation();
     }
@@ -299,9 +271,8 @@ export function createEventHandlers(
     document.addEventListener('mousemove', handleMouseMove, true);
     document.addEventListener('mouseup', handleMouseUp, true);
     document.addEventListener('scroll', handleScroll, { passive: true });
-    document.addEventListener('keydown', handleKeyDown, true);
-    document.addEventListener('keyup', handleKeyUp, true);
-    document.addEventListener('keypress', handleKeyPress, true);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
 
     isActive = true;
   };
@@ -317,9 +288,8 @@ export function createEventHandlers(
     document.removeEventListener('mousemove', handleMouseMove, true);
     document.removeEventListener('mouseup', handleMouseUp, true);
     document.removeEventListener('scroll', handleScroll);
-    document.removeEventListener('keydown', handleKeyDown, true);
-    document.removeEventListener('keyup', handleKeyUp, true);
-    document.removeEventListener('keypress', handleKeyPress, true);
+    document.removeEventListener('keydown', handleKeyDown);
+    document.removeEventListener('keyup', handleKeyUp);
 
     isActive = false;
   };
