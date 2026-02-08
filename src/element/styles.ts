@@ -96,11 +96,11 @@ export const componentStyles = css`
     }
   }
 
-      .popup-component {
-        font-size: var(--as-font-size-xs);
-        color: var(--as-text-tertiary);
-        margin-top: 2px;
-      }
+  .popup-component {
+    font-size: var(--as-font-size-xs);
+    color: var(--as-text-tertiary);
+    margin-top: 2px;
+  }
 
   /* Toolbar buttons */
   .toolbar-btn {
@@ -542,11 +542,11 @@ export const componentStyles = css`
     white-space: nowrap;
   }
 
-    .hover-component {
-      font-size: var(--as-font-size-xs);
-      color: var(--as-text-tertiary);
-      margin-top: 2px;
-    }
+  .hover-component {
+    font-size: var(--as-font-size-xs);
+    color: var(--as-text-tertiary);
+    margin-top: 2px;
+  }
 
   /* Selection rectangle */
   .selection-rect {

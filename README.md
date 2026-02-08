@@ -18,7 +18,7 @@ When working with AI coding agents, communicating which visual element needs mod
 
 1. Click any element on a web page
 2. Add feedback or notes
-3. Export structured markdown with element identifiers, CSS selectors, and context
+3. Export structured markdown with element identifiers, CSS selectors, framework component paths, and context
 
 The exported markdown gives AI agents the precise information needed to locate elements in code.
 
@@ -205,6 +205,19 @@ Generates human-readable names like `button "Save"` or `input [email]` that AI a
 ### CSS Selector Paths
 Creates CSS selectors (e.g., `form > .actions > button`) for precise element location.
 
+### Framework Component Paths
+Automatically detects and displays the framework component hierarchy for annotated elements. Works with React, Vue, Svelte, and Angular in development mode.
+
+| Framework | Example Output |
+|-----------|---------------|
+| React 18 | `App (App.tsx:7) > LandingPage (App.tsx:54) > CTAButton (App.tsx:38)` |
+| React 19 | `App > LandingPage > CTAButton` (names only, no file/line) |
+| Vue | `App (App.vue) > LandingPage (LandingPage.vue) > CTAButton (CTAButton.vue)` |
+| Svelte | `LandingPage.svelte:5 > HeroSection.svelte:5 > CTAButton.svelte:5` |
+| Angular | `_App > _LandingPageComponent > _CTAButtonComponent` |
+
+Component paths appear in the popup, hover tooltip, and markdown output (standard level and above).
+
 ### Multi-Select
 Hold and drag to select multiple elements at once.
 
@@ -219,8 +232,8 @@ When active, clicks are blocked from triggering buttons/links while annotating (
 | Level | Description |
 |-------|-------------|
 | Compact | `1. **button "Save"**: Change color to blue` |
-| Standard | Element + path + comment with headers |
-| Detailed | + classes, position, nearby context, custom context |
+| Standard | Element + path + component path + comment with headers |
+| Detailed | + framework prefix, classes, position, nearby context, custom context |
 | Forensic | + full DOM path, computed styles, accessibility info, custom context |
 
 ### Persistence
@@ -488,6 +501,7 @@ interface AnnotationInstance {
 
 ### 1. button "Save"
 **Location:** form > .actions > button
+**Component:** App (App.tsx:12) > SaveForm (SaveForm.tsx:8)
 **Feedback:** Change color to blue
 
 ---

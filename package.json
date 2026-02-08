@@ -1,6 +1,6 @@
 {
   "name": "agent-ui-annotation",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Web page annotation toolbar for AI coding agents",
   "type": "module",
   "main": "./dist/agent-ui-annotation.js",
