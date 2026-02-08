@@ -45,6 +45,10 @@ function generateStandardAnnotation(annotation: Annotation): string {
   lines.push(`### ${annotation.number}. ${annotation.elementInfo.humanReadable}`);
   lines.push(`**${tOutput('output.location')}:** ${annotation.elementInfo.selectorPath}`);
 
+  if (annotation.elementInfo.componentPath) {
+    lines.push(`**${tOutput('output.component')}:** ${annotation.elementInfo.componentPath}`);
+  }
+
   if (annotation.selectedText) {
     lines.push(`**${tOutput('output.selectedText')}:** "${annotation.selectedText}"`);
   }
@@ -69,7 +73,7 @@ function generateDetailedAnnotation(annotation: Annotation): string {
 
   if (info.componentPath) {
     const frameworkPrefix = info.componentFramework ? `${info.componentFramework}: ` : '';
-    lines.push(`**Component:** ${frameworkPrefix}${info.componentPath}`);
+    lines.push(`**${tOutput('output.component')}:** ${frameworkPrefix}${info.componentPath}`);
   }
 
   if (info.id) {
@@ -155,7 +159,7 @@ function generateForensicAnnotation(annotation: Annotation, _env: EnvironmentInf
 
   if (info.componentPath) {
     const frameworkPrefix = info.componentFramework ? `${info.componentFramework}: ` : '';
-    lines.push(`- **Component:** ${frameworkPrefix}${info.componentPath}`);
+    lines.push(`- **${tOutput('output.component')}:** ${frameworkPrefix}${info.componentPath}`);
   }
 
   if (info.id) {
