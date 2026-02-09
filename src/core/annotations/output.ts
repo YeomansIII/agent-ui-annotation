@@ -5,6 +5,7 @@
 import type { Annotation, OutputLevel, EnvironmentInfo } from '../types';
 import { formatStyles } from '../element/styles';
 import { tOutput } from '../i18n';
+import { getAnnotationRoute, getCurrentRoute } from './route';
 
 /**
  * Get environment info for forensic output
@@ -87,10 +88,6 @@ function generateDetailedAnnotation(annotation: Annotation): string {
   // Position
   const rect = info.rect;
   lines.push(`**Position:** ${Math.round(rect.left)}x${Math.round(rect.top)}, ${Math.round(rect.width)}×${Math.round(rect.height)}px`);
-
-  if (info.isFixed) {
-    lines.push(`**${tOutput('output.positioning')}:** ${tOutput('output.fixedSticky')}`);
-  }
 
   // Selected text
   if (annotation.selectedText) {
@@ -191,7 +188,6 @@ function generateForensicAnnotation(annotation: Annotation, _env: EnvironmentInf
   const rect = info.rect;
   lines.push(`- **${tOutput('output.boundingBox')}:** (${Math.round(rect.left)}, ${Math.round(rect.top)}) to (${Math.round(rect.right)}, ${Math.round(rect.bottom)})`);
   lines.push(`- **${tOutput('output.size')}:** ${Math.round(rect.width)}×${Math.round(rect.height)}px`);
-  lines.push(`- **${tOutput('output.fixedPositioning')}:** ${info.isFixed ? tOutput('output.yes') : tOutput('output.no')}`);
   lines.push('');
 
   // Accessibility
@@ -274,11 +270,10 @@ function generateForensicAnnotation(annotation: Annotation, _env: EnvironmentInf
 /**
  * Generate header for output
  */
-function generateHeader(level: OutputLevel, annotationCount: number): string {
+function generateHeader(level: OutputLevel, annotationCount: number, route: string): string {
   const lines: string[] = [];
-  const path = window.location.pathname;
 
-  lines.push(`## ${tOutput('output.pageFeedback')}: ${path}`);
+  lines.push(`## ${tOutput('output.pageFeedback')}: ${route}`);
 
   if (level === 'compact') {
     lines.push('');
@@ -295,13 +290,13 @@ function generateHeader(level: OutputLevel, annotationCount: number): string {
 /**
  * Generate forensic header with full environment info
  */
-function generateForensicHeader(env: EnvironmentInfo, annotationCount: number): string {
+function generateForensicHeader(env: EnvironmentInfo, annotationCount: number, route: string): string {
   const lines: string[] = [];
 
-  lines.push(`## ${tOutput('output.pageFeedback')}: ${env.url}`);
+  lines.push(`## ${tOutput('output.pageFeedback')}: ${route}`);
   lines.push('');
   lines.push(`### ${tOutput('output.environment')}`);
-  lines.push(`- **${tOutput('output.url')}:** ${env.url}`);
+  lines.push(`- **${tOutput('output.url')}:** ${route}`);
   lines.push(`- **${tOutput('output.viewport')}:** ${env.viewport.width}×${env.viewport.height}`);
   lines.push(`- **${tOutput('output.devicePixelRatio')}:** ${env.devicePixelRatio}`);
   lines.push(`- **${tOutput('output.scrollPosition')}:** (${env.scrollPosition.x}, ${env.scrollPosition.y})`);
@@ -323,40 +318,59 @@ export function generateOutput(annotations: Annotation[], level: OutputLevel): s
     return `## ${tOutput('output.pageFeedback')}\n\n${tOutput('output.noAnnotations')}`;
   }
 
-  const sortedAnnotations = [...annotations].sort((a, b) => a.number - b.number);
   const env = level === 'forensic' ? getEnvironmentInfo() : null;
+  const annotationsByRoute = new Map<string, Annotation[]>();
 
-  const parts: string[] = [];
-
-  // Header
-  if (level === 'forensic' && env) {
-    parts.push(generateForensicHeader(env, annotations.length));
-  } else {
-    parts.push(generateHeader(level, annotations.length));
+  for (const annotation of annotations) {
+    const route = getAnnotationRoute(annotation) ?? getCurrentRoute();
+    const existing = annotationsByRoute.get(route);
+    if (existing) {
+      existing.push(annotation);
+    } else {
+      annotationsByRoute.set(route, [annotation]);
+    }
   }
 
-  // Annotation content
-  for (const annotation of sortedAnnotations) {
-    switch (level) {
-      case 'compact':
-        parts.push(generateCompactAnnotation(annotation));
-        break;
-      case 'standard':
-        parts.push(generateStandardAnnotation(annotation));
-        break;
-      case 'detailed':
-        parts.push(generateDetailedAnnotation(annotation));
-        break;
-      case 'forensic':
-        parts.push(generateForensicAnnotation(annotation, env!));
-        break;
+  const sortedRoutes = Array.from(annotationsByRoute.keys()).sort();
+  const parts: string[] = [];
+
+  for (const route of sortedRoutes) {
+    const group = annotationsByRoute.get(route) ?? [];
+    const sortedAnnotations = [...group].sort((a, b) => a.number - b.number);
+
+    if (parts.length > 0) {
+      parts.push('');
     }
 
+    if (level === 'forensic' && env) {
+      parts.push(generateForensicHeader(env, sortedAnnotations.length, route));
+    } else {
+      parts.push(generateHeader(level, sortedAnnotations.length, route));
+    }
+
+  // Annotation content
+    for (const annotation of sortedAnnotations) {
+      switch (level) {
+        case 'compact':
+          parts.push(generateCompactAnnotation(annotation));
+          break;
+        case 'standard':
+          parts.push(generateStandardAnnotation(annotation));
+          break;
+        case 'detailed':
+          parts.push(generateDetailedAnnotation(annotation));
+          break;
+        case 'forensic':
+          parts.push(generateForensicAnnotation(annotation, env!));
+          break;
+      }
+
     // Add separator between annotations for non-compact levels
-    if (level !== 'compact') {
-      parts.push('');
-      parts.push('---');
-      parts.push('');
+      if (level !== 'compact') {
+        parts.push('');
+        parts.push('---');
+        parts.push('');
+      }
     }
   }
 

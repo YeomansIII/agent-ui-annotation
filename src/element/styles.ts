@@ -253,13 +253,18 @@ export const componentStyles = css`
     box-shadow: var(--as-shadow-lg);
   }
 
-  .marker.fixed {
-    position: fixed;
-  }
-
   .marker.pending {
     opacity: 0.7;
     animation: marker-pulse 1s ease-in-out infinite;
+  }
+
+  .marker.dot-only {
+    width: 10px;
+    height: 10px;
+    font-size: 0;
+    border-width: 1.5px;
+    box-shadow: var(--as-shadow-sm);
+    pointer-events: none;
   }
 
   @keyframes marker-pulse {
@@ -355,6 +360,9 @@ export const componentStyles = css`
     position: fixed;
     z-index: var(--as-z-popup);
     width: 340px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    overflow: auto;
     padding: var(--as-space-lg);
     background: var(--as-bg-primary);
     border: 1px solid var(--as-border-primary);

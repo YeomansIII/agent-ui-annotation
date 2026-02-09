@@ -43,7 +43,6 @@ An annotation is a single piece of feedback attached to a DOM element (or area).
 | `fullPath` | string? | Complete DOM ancestry path |
 | `accessibility` | string? | ARIA attributes and accessibility info |
 | `isMultiSelect` | boolean? | True if created via drag selection |
-| `isFixed` | boolean? | True if element has fixed/sticky positioning |
 
 ### Toolbar States
 

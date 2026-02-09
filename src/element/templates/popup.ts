@@ -5,6 +5,7 @@
 import type { Annotation, ElementInfo } from '../../core/types';
 import { t } from '../../core/i18n';
 import { icons } from './toolbar';
+import { calculatePopupPosition } from '../popup-position';
 
 export interface PopupRenderOptions {
   elementInfo: ElementInfo | null;
@@ -16,46 +17,6 @@ export interface PopupRenderOptions {
   multiSelectInfos?: ElementInfo[];
 }
 
-/**
- * Calculate popup position near click point
- */
-function calculatePopupPosition(clickX: number, clickY: number): { left: string; top: string } {
-  const popupWidth = 340;
-  const popupHeight = 220;
-  const margin = 12;
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-
-  // Default: position to the right of the click point
-  let left = clickX + margin;
-  let top = clickY - popupHeight / 2;
-
-  // If would overflow right edge, position to the left of click point
-  if (left + popupWidth > viewportWidth - margin) {
-    left = clickX - popupWidth - margin;
-  }
-
-  // If would overflow left edge, center horizontally at click point
-  if (left < margin) {
-    left = Math.max(margin, clickX - popupWidth / 2);
-  }
-
-  // Clamp to viewport bounds
-  left = Math.max(margin, Math.min(left, viewportWidth - popupWidth - margin));
-
-  // Vertical positioning
-  if (top < margin) {
-    top = margin;
-  }
-  if (top + popupHeight > viewportHeight - margin) {
-    top = viewportHeight - popupHeight - margin;
-  }
-
-  return {
-    left: `${left}px`,
-    top: `${top}px`,
-  };
-}
 
 /**
  * Render the popup as a popover near the click point
@@ -100,7 +61,7 @@ export function renderPopup(options: PopupRenderOptions): string {
   }
 
   return `
-    <div class="popup-popover ${isShaking ? 'shake' : ''}" style="left: ${position.left}; top: ${position.top};" data-annotation-popup>
+    <div class="popup-popover ${isShaking ? 'shake' : ''}" style="left: ${position.left}px; top: ${position.top}px;" data-annotation-popup>
       <div class="popup-header">
         ${headerContent}
         <button class="popup-close" data-action="popup-close" title="${t('popup.close')}">

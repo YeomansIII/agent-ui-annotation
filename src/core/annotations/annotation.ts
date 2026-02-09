@@ -7,6 +7,7 @@ import type { Store } from '../store';
 import type { EventBus } from '../event-bus';
 import type { EventMap } from '../types';
 import { collectElementInfo } from '../element';
+import { getCurrentRoute, resolveRoute } from './route';
 
 /**
  * Generate a unique annotation ID
@@ -50,8 +51,8 @@ export function createAnnotation(
     includeForensic = false,
     clickX = 0,
     clickY = 0,
-    offsetX,
-    offsetY,
+    offsetX = 0.5,
+    offsetY = 0.5,
     context,
     elementInfo: providedElementInfo,
   } = options;
@@ -201,10 +202,17 @@ export function createAnnotationManager(
       }
     }
 
+    const baseContext = context ?? {};
+    const routeSource = typeof baseContext.route === 'string'
+      ? baseContext.route
+      : getCurrentRoute();
+    const route = resolveRoute(routeSource);
+    const contextWithRoute = { ...baseContext, route };
+
     const annotation = createAnnotation(element, finalComment, state.annotations, {
       ...options,
       includeForensic,
-      context,
+      context: contextWithRoute,
       elementInfo,
     });
 

@@ -144,31 +144,25 @@ export function createEventHandlers(
     // Check composedPath to properly detect clicks inside shadow DOM
     if (isAnnotationEvent(event)) return;
 
+    // Block ALL clicks from reaching the page when blockInteractions is ON.
+    // This runs in capture phase, preventing the event from reaching page elements.
+    if (state.settings.blockInteractions) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
     // Don't process element selection when settings panel is open
     if (state.settingsPanelVisible) return;
 
     const target = getTargetElement(event);
     if (!target) return;
 
-    // Prevent default only when active and targeting interactive elements
-    // Also check ancestors to handle clicks on children of interactive elements (e.g., icon inside a link)
-    if (state.settings.blockInteractions) {
-      const interactiveSelector = 'a, button, input, select, textarea, [role="button"], [onclick]';
-      const isInteractive = target.matches(interactiveSelector) || target.closest(interactiveSelector);
-      if (isInteractive) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-    }
-
     const includeForensic = state.settings.outputLevel === 'forensic';
     const elementInfo = collectElementInfo(target, includeForensic);
 
-    // Store click position:
-    // - For fixed elements: use viewport coordinates directly
-    // - For non-fixed elements: convert to document coordinates (add scroll offset)
+    // Store click position as document-absolute coordinates
     const clickX = event.clientX;
-    const clickY = elementInfo.isFixed ? event.clientY : event.clientY + window.scrollY;
+    const clickY = event.clientY + window.scrollY;
 
     eventBus.emit('element:click', {
       element: target,
@@ -184,11 +178,20 @@ export function createEventHandlers(
   const handleMouseDown = (event: MouseEvent) => {
     const state = store.getState();
 
+    if (state.mode === 'disabled') return;
     if (state.mode !== 'multi-select') return;
     if (state.passthroughActive) return;
 
     const target = event.target as Element;
     if (isAnnotationElement(target)) return;
+
+    // Block from reaching the page when blockInteractions is ON
+    if (state.settings.blockInteractions) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    if (state.mode !== 'multi-select') return;
 
     const position: Position = {
       x: event.clientX,
@@ -222,9 +225,15 @@ export function createEventHandlers(
   /**
    * Handle mouse up to complete drag selection
    */
-  const handleMouseUp = (_event: MouseEvent) => {
+  const handleMouseUp = (event: MouseEvent) => {
     const state = store.getState();
     if (state.passthroughActive) return;
+
+    // Block from reaching the page when blockInteractions is ON
+    if (state.mode !== 'disabled' && state.settings.blockInteractions && !isAnnotationEvent(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
 
     if (!state.isSelecting) return;
 
@@ -238,13 +247,16 @@ export function createEventHandlers(
 
   /**
    * Handle scroll events
+   * NOTE: The annotation element also tracks scrollY via its own always-on listener
+   * so that dot-mode markers move correctly even when the tool is deactivated.
+   * This handler is the primary one when the tool is active.
    */
   const handleScroll = () => {
     store.setState({ scrollY: window.scrollY });
   };
 
   /**
-   * Handle keyboard events
+   * Handle keyboard events (runs in capture phase to block before page handlers)
    */
   const handleKeyDown = (event: KeyboardEvent) => {
     const state = store.getState();
@@ -271,8 +283,15 @@ export function createEventHandlers(
       }
     }
 
-    // Escape to cancel current operation (when not in annotation UI)
+    // Always handle Escape for the annotation tool
     handleEscape(state, event);
+
+    // Block ALL keyboard events from reaching the page when blockInteractions is ON
+    if (state.mode !== 'disabled' && state.settings.blockInteractions) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
   };
 
   const handleKeyUp = (event: KeyboardEvent) => {
@@ -285,6 +304,13 @@ export function createEventHandlers(
 
     // Prevent annotation UI events from propagating
     if (isAnnotationEvent(event)) {
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      return;
+    }
+
+    if (state.mode !== 'disabled' && state.settings.blockInteractions) {
+      event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
     }

@@ -136,9 +136,4 @@ export {
   getMeaningfulClasses,
   getFirstMeaningfulClass,
   formatClassSelector,
-  isFixedOrSticky,
-  getFixedAncestor,
-  getElementPosition,
-  percentToPixels,
-  pixelsToPercent,
 } from './utils';

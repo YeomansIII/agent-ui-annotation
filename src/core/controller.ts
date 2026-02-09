@@ -178,13 +178,9 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
 
     if (state.mode === 'disabled') return;
 
-    // clickX/clickY from event are:
-    // - Fixed elements: viewport coords
-    // - Non-fixed elements: document coords (viewport + scroll at click time)
-    //
+    // clickX/clickY from events are always document-absolute coordinates.
     // For popup positioning, we need viewport coords.
-    // For annotation/marker storage, we use the coords as-is (document for non-fixed, viewport for fixed).
-    const viewportY = elementInfo.isFixed ? clickY : clickY - window.scrollY;
+    const viewportY = clickY - window.scrollY;
 
     // Show popup for creating annotation with pending marker
     store.setState({
@@ -195,7 +191,6 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
       popupClickY: viewportY, // Convert to viewport for popup positioning
       pendingMarkerX: clickX, // Document coords for marker
       pendingMarkerY: clickY,
-      pendingMarkerIsFixed: elementInfo.isFixed,
       hoveredElement: element,
       hoveredElementInfo: elementInfo,
     });
@@ -228,7 +223,6 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
       popupClickY: centerY,
       pendingMarkerX: 0, // No single pending marker for multi-select
       pendingMarkerY: 0,
-      pendingMarkerIsFixed: false,
       multiSelectElements: elements,
       multiSelectInfos: elementInfos,
       hoveredElement: elements[0],
@@ -247,7 +241,7 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
       store.setState({
         mode,
         toolbarExpanded: true,
-        markersVisible: true,
+        markerVisibility: 'full',
         scrollY: window.scrollY, // Initialize scroll position
       });
     });
@@ -426,12 +420,13 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
       // Editing existing annotation - use its stored click position
       const annotation = store.getState().annotations.get(annotationId);
       if (annotation) {
+        const popupClickY = annotation.clickY - window.scrollY;
         store.setState({
           popupVisible: true,
           popupAnnotationId: annotationId,
           popupElementInfo: annotation.elementInfo,
           popupClickX: annotation.clickX,
-          popupClickY: annotation.clickY,
+          popupClickY: popupClickY,
         });
         return;
       }
@@ -454,7 +449,6 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
       popupClickY: 0,
       pendingMarkerX: 0,
       pendingMarkerY: 0,
-      pendingMarkerIsFixed: false,
       multiSelectElements: [],
       multiSelectInfos: [],
     });

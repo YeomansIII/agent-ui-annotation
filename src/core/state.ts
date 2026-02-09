@@ -2,7 +2,7 @@
  * State shape and initial state factory
  */
 
-import type { AppState, Settings, ToolMode, Position, AnnotationId } from './types';
+import type { AppState, Settings, ToolMode, Position, AnnotationId, MarkerVisibility } from './types';
 
 /** Default settings */
 export const DEFAULT_SETTINGS: Settings = {
@@ -46,10 +46,9 @@ export function createInitialState(overrides?: Partial<AppState>): AppState {
     popupClickY: 0,
     pendingMarkerX: 0,
     pendingMarkerY: 0,
-    pendingMarkerIsFixed: false,
     multiSelectElements: [],
     multiSelectInfos: [],
-    markersVisible: true,
+    markerVisibility: 'full' as MarkerVisibility,
     animatingMarkers: new Set(),
     exitingMarkers: new Set(),
     deletingMarkerId: null,
@@ -79,5 +78,5 @@ export const selectors = {
   getSettings: (state: AppState) => state.settings,
   getTheme: (state: AppState) => state.settings.theme,
   getOutputLevel: (state: AppState) => state.settings.outputLevel,
-  areMarkersVisible: (state: AppState) => state.markersVisible && state.toolbarExpanded,
+  areMarkersVisible: (state: AppState) => state.markerVisibility !== 'hidden' && state.toolbarExpanded,
 };

@@ -94,8 +94,6 @@ export interface ElementInfo {
   innerText: string;
   /** Element attributes */
   attributes: Record<string, string>;
-  /** Whether element is fixed/sticky positioned */
-  isFixed: boolean;
 }
 
 /** Single annotation */
@@ -121,10 +119,10 @@ export interface Annotation {
   clickX: number;
   /** Click Y coordinate (document-relative for non-fixed, viewport-relative for fixed) */
   clickY: number;
-  /** Offset as percentage (0-1) from element's left edge at creation time (for resize repositioning) */
-  offsetX?: number;
-  /** Offset as percentage (0-1) from element's top edge at creation time (for resize repositioning) */
-  offsetY?: number;
+  /** Offset as percentage (0-1) from element's left edge at creation time */
+  offsetX: number;
+  /** Offset as percentage (0-1) from element's top edge at creation time */
+  offsetY: number;
   /** Custom context data provided by onBeforeAnnotationCreate hook */
   context?: Record<string, unknown>;
 }
@@ -174,6 +172,14 @@ export type ToolbarPosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom
 
 /** Tool mode */
 export type ToolMode = 'select' | 'multi-select' | 'disabled';
+
+/**
+ * Marker visibility mode:
+ * - 'full': markers with numbers (default when toolbar is open)
+ * - 'dots': small dot indicators without numbers (visible even when toolbar is closed)
+ * - 'hidden': markers are not rendered
+ */
+export type MarkerVisibility = 'full' | 'dots' | 'hidden';
 
 /** Settings configuration */
 export interface Settings {
@@ -264,17 +270,15 @@ export interface AppState {
   /** Click position for popup placement (viewport coords) */
   popupClickX: number;
   popupClickY: number;
-  /** Click position for marker placement (document coords for non-fixed, viewport for fixed) */
+  /** Click position for marker placement (document coords) */
   pendingMarkerX: number;
   pendingMarkerY: number;
-  /** Whether pending marker element is fixed */
-  pendingMarkerIsFixed: boolean;
   /** Multiple selected elements for batch annotation creation */
   multiSelectElements: Element[];
   /** Element infos for multi-select (parallel array to multiSelectElements) */
   multiSelectInfos: ElementInfo[];
-  /** Whether markers are visible */
-  markersVisible: boolean;
+  /** Marker visibility mode: 'full' (numbered), 'dots' (small circles), 'hidden' */
+  markerVisibility: MarkerVisibility;
   /** Set of marker IDs that are animating */
   animatingMarkers: Set<AnnotationId>;
   /** Set of marker IDs that are exiting */
