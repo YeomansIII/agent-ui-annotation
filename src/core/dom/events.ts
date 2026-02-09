@@ -271,8 +271,8 @@ export function createEventHandlers(
     document.addEventListener('mousemove', handleMouseMove, true);
     document.addEventListener('mouseup', handleMouseUp, true);
     document.addEventListener('scroll', handleScroll, { passive: true });
-    document.addEventListener('keydown', handleKeyDown, true);
-    document.addEventListener('keyup', handleKeyUp, true);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
 
     isActive = true;
   };
@@ -288,8 +288,8 @@ export function createEventHandlers(
     document.removeEventListener('mousemove', handleMouseMove, true);
     document.removeEventListener('mouseup', handleMouseUp, true);
     document.removeEventListener('scroll', handleScroll);
-    document.removeEventListener('keydown', handleKeyDown, true);
-    document.removeEventListener('keyup', handleKeyUp, true);
+    document.removeEventListener('keydown', handleKeyDown);
+    document.removeEventListener('keyup', handleKeyUp);
 
     isActive = false;
   };
