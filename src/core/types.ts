@@ -295,6 +295,8 @@ export interface AppState {
   isDraggingToolbar: boolean;
   /** Whether settings panel is visible */
   settingsPanelVisible: boolean;
+  /** Whether Cmd/Ctrl passthrough mode is active (temporarily lets mouse events reach the page) */
+  passthroughActive: boolean;
 }
 
 /** Custom element events */

@@ -7,6 +7,7 @@ import type { Store } from '../store';
 import type { EventBus } from '../event-bus';
 import type { EventMap } from '../types';
 import { collectElementInfo } from '../element';
+import { setPassthroughMode } from './cursor';
 
 /** Data attributes used by Annotation */
 const DATA_TOOLBAR = 'data-annotation-toolbar';
@@ -135,6 +136,7 @@ export function createEventHandlers(
     const state = store.getState();
 
     if (state.mode === 'disabled') return;
+    if (state.passthroughActive) return;
 
     // Check composedPath to properly detect clicks inside shadow DOM
     if (isAnnotationEvent(event)) return;
@@ -180,6 +182,7 @@ export function createEventHandlers(
     const state = store.getState();
 
     if (state.mode !== 'multi-select') return;
+    if (state.passthroughActive) return;
 
     const target = event.target as Element;
     if (isAnnotationElement(target)) return;
@@ -197,6 +200,7 @@ export function createEventHandlers(
    */
   const handleMouseMove = (event: MouseEvent) => {
     const state = store.getState();
+    if (state.passthroughActive) return;
 
     if (!state.isSelecting && state.selectionRect === null) return;
 
@@ -217,6 +221,7 @@ export function createEventHandlers(
    */
   const handleMouseUp = (_event: MouseEvent) => {
     const state = store.getState();
+    if (state.passthroughActive) return;
 
     if (!state.isSelecting) return;
 
@@ -241,6 +246,14 @@ export function createEventHandlers(
   const handleKeyDown = (event: KeyboardEvent) => {
     const state = store.getState();
 
+    // Event passthrough: temporarily give control back to the page for interactions
+    if (state.mode !== 'disabled' && (event.key === 'Escape')) {
+      if (!state.passthroughActive) {
+        store.setState({ passthroughActive: true });
+        setPassthroughMode(true);
+      }
+    }
+
     if (isAnnotationEvent(event)) {
       handleEscape(state, event);
       // For all other keys when typing in annotation UI, prevent propagation
@@ -254,9 +267,27 @@ export function createEventHandlers(
   };
 
   const handleKeyUp = (event: KeyboardEvent) => {
+    // Release passthrough
+    const state = store.getState();
+    if (state.passthroughActive && (event.key === 'Escape')) {
+      store.setState({ passthroughActive: false });
+      setPassthroughMode(false);
+    }
+
     if (isAnnotationEvent(event)) {
       event.stopPropagation();
       event.stopImmediatePropagation();
+    }
+  };
+
+  /**
+   * Clean up passthrough when window loses focus (e.g. Cmd+Tab)
+   */
+  const handleWindowBlur = () => {
+    const state = store.getState();
+    if (state.passthroughActive) {
+      store.setState({ passthroughActive: false });
+      setPassthroughMode(false);
     }
   };
 
@@ -273,6 +304,7 @@ export function createEventHandlers(
     document.addEventListener('scroll', handleScroll, { passive: true });
     document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleWindowBlur);
 
     isActive = true;
   };
@@ -290,6 +322,13 @@ export function createEventHandlers(
     document.removeEventListener('scroll', handleScroll);
     document.removeEventListener('keydown', handleKeyDown);
     document.removeEventListener('keyup', handleKeyUp);
+    window.removeEventListener('blur', handleWindowBlur);
+
+    // Clean up passthrough state if it was active
+    if (store.getState().passthroughActive) {
+      store.setState({ passthroughActive: false });
+      setPassthroughMode(false);
+    }
 
     isActive = false;
   };

@@ -802,10 +802,10 @@ export class AnnotationElement extends LitElement {
       });
     }
 
-    // Hover tooltip HTML
+    // Hover tooltip HTML (suppress during Cmd/Ctrl passthrough)
     let tooltipHtml = '';
     let highlightHtml = '';
-    if (state.toolbarExpanded && !state.popupVisible && state.hoveredElementInfo && settings.showTooltips) {
+    if (state.toolbarExpanded && !state.popupVisible && !state.passthroughActive && state.hoveredElementInfo && settings.showTooltips) {
       tooltipHtml = renderHoverTooltip({
         elementInfo: state.hoveredElementInfo,
         x: this.mouseX,

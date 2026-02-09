@@ -7,7 +7,7 @@ const CURSOR_STYLE_ID = 'annotation-cursor-styles';
 /** CSS for cursor override */
 const CURSOR_CSS = `
   /* Crosshair for most elements */
-  body:not([data-annotation-disabled]) *:not([data-annotation-toolbar] *):not([data-annotation-marker] *):not([data-annotation-popup] *) {
+  body:not([data-annotation-disabled]):not([data-annotation-passthrough]) *:not([data-annotation-toolbar] *):not([data-annotation-marker] *):not([data-annotation-popup] *) {
     cursor: crosshair !important;
   }
 
@@ -45,7 +45,7 @@ const CURSOR_CSS = `
   }
 
   /* Crosshair for multi-select mode */
-  body[data-annotation-multiselect] *:not([data-annotation-toolbar] *):not([data-annotation-marker] *):not([data-annotation-popup] *) {
+  body[data-annotation-multiselect]:not([data-annotation-passthrough]) *:not([data-annotation-toolbar] *):not([data-annotation-marker] *):not([data-annotation-popup] *) {
     cursor: crosshair !important;
   }
 
@@ -102,6 +102,17 @@ export function setDraggingMode(enabled: boolean): void {
 }
 
 /**
+ * Set passthrough mode to show original page cursor
+ */
+export function setPassthroughMode(enabled: boolean): void {
+  if (enabled) {
+    document.body.setAttribute('data-annotation-passthrough', '');
+  } else {
+    document.body.removeAttribute('data-annotation-passthrough');
+  }
+}
+
+/**
  * Set disabled state
  */
 export function setDisabledState(disabled: boolean): void {
@@ -120,4 +131,5 @@ export function cleanupCursorStyles(): void {
   document.body.removeAttribute('data-annotation-multiselect');
   document.body.removeAttribute('data-annotation-dragging');
   document.body.removeAttribute('data-annotation-disabled');
+  document.body.removeAttribute('data-annotation-passthrough');
 }

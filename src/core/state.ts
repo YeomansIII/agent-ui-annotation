@@ -60,6 +60,7 @@ export function createInitialState(overrides?: Partial<AppState>): AppState {
     showEntranceAnimation: true,
     isDraggingToolbar: false,
     settingsPanelVisible: false,
+    passthroughActive: false,
     ...overrides,
   };
 }
