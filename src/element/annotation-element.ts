@@ -22,7 +22,7 @@ import {
 } from './templates';
 import { normalizeRect } from '../core/dom/multi-select';
 import { t } from '../core/i18n';
-import { getCurrentRoute, isAnnotationVisibleOnRoute } from '../core/annotations/route';
+import { getCurrentRoute, isAnnotationVisibleOnRoute, getAnnotationRoute } from '../core/annotations/route';
 import { createDevtoolsApi, attachDevtoolsApi, detachDevtoolsApi, type DevtoolsApi } from './devtools-api';
 import { refindElement } from '../core/dom/element-refinder';
 
@@ -88,6 +88,7 @@ export class AnnotationElement extends LitElement {
   private settingsPanelAnimated: boolean = false;
   private animatedMarkerTooltipId: string | null = null;
   private lastRenderedSettings: string | null = null;
+  private showCountSummary: boolean = false;
 
   // Bound handlers for cleanup
   private boundHandleResize = () => this.handleWindowResize();
@@ -365,13 +366,15 @@ export class AnnotationElement extends LitElement {
    * Attempt to re-find DOM elements for persisted annotations that
    * lost their element reference (e.g., after page reload).
    * Uses the stored selectorPath, ID, classes, and text content.
+   * Retries up to MAX_RETRIES times for dynamically loaded content.
    */
-  private refindAnnotationElements() {
+  private refindAnnotationElements(retryCount: number = 0) {
     if (!this.core) return;
 
     const state = this.core.store.getState();
     const updatedAnnotations = new Map(state.annotations);
     let changed = false;
+    let allFound = true;
 
     for (const [id, annotation] of updatedAnnotations) {
       // Only try re-finding if the element is missing or disconnected
@@ -381,11 +384,19 @@ export class AnnotationElement extends LitElement {
       if (element) {
         updatedAnnotations.set(id, { ...annotation, element });
         changed = true;
+      } else {
+        allFound = false;
       }
     }
 
     if (changed) {
       this.core.store.setState({ annotations: updatedAnnotations });
+    }
+
+    // Retry for dynamically loaded content (e.g., async lists, lazy components)
+    const MAX_RETRIES = 3;
+    if (!allFound && retryCount < MAX_RETRIES) {
+      setTimeout(() => this.refindAnnotationElements(retryCount + 1), 100 * (retryCount + 1));
     }
   }
 
@@ -519,6 +530,23 @@ export class AnnotationElement extends LitElement {
         break;
       }
 
+      case 'navigate-route': {
+        event.preventDefault();
+        const link = (target.closest('[data-route-href]') as HTMLElement);
+        const href = link?.getAttribute('data-route-href');
+        if (href) {
+          try {
+            const url = new URL(href);
+            history.pushState({}, '', url.pathname + url.search + url.hash);
+          } catch {
+            history.pushState({}, '', href);
+          }
+          window.dispatchEvent(new Event('agent-ui-annotation:route-change'));
+        }
+        this.showCountSummary = false;
+        break;
+      }
+
       case 'popup-close':
       case 'popup-cancel':
         this.core.hidePopup();
@@ -580,21 +608,48 @@ export class AnnotationElement extends LitElement {
 
   private handleMouseOver(event: Event) {
     const target = event.target as HTMLElement;
-    const marker = target.closest('[data-annotation-id]');
 
+    // Marker hover
+    const marker = target.closest('[data-annotation-id]');
     if (marker) {
-      this.hoveredMarkerId = marker.getAttribute('data-annotation-id');
-      this.requestUpdate();
+      const id = marker.getAttribute('data-annotation-id');
+      if (id !== this.hoveredMarkerId) {
+        this.hoveredMarkerId = id;
+        this.requestUpdate();
+      }
+      return;
+    }
+
+    // Annotation count hover → show summary
+    if (target.closest('.annotation-count')) {
+      if (!this.showCountSummary) {
+        this.showCountSummary = true;
+        this.requestUpdate();
+      }
+      return;
     }
   }
 
   private handleMouseOut(event: Event) {
     const target = event.target as HTMLElement;
-    const marker = target.closest('[data-annotation-id]');
+    const relatedTarget = (event as MouseEvent).relatedTarget as HTMLElement | null;
 
-    if (marker) {
-      this.hoveredMarkerId = null;
-      this.requestUpdate();
+    // Marker hover
+    if (target.closest('[data-annotation-id]')) {
+      if (!relatedTarget?.closest(`[data-annotation-id="${this.hoveredMarkerId}"]`)) {
+        this.hoveredMarkerId = null;
+        this.requestUpdate();
+      }
+      return;
+    }
+
+    // Annotation count + summary hover
+    if (target.closest('.annotation-count')) {
+      if (!relatedTarget?.closest('.annotation-count')) {
+        this.showCountSummary = false;
+        this.requestUpdate();
+      }
+      return;
     }
   }
 
@@ -693,6 +748,46 @@ export class AnnotationElement extends LitElement {
         composed: true,
       })
     );
+  }
+
+  /**
+   * Generate route-grouped annotation count summary HTML
+   */
+  private generateCountSummary(annotations: import('../core/types').Annotation[]): string {
+    if (annotations.length === 0) return '';
+
+    const routeGroups = new Map<string, number>();
+    for (const annotation of annotations) {
+      const route = getAnnotationRoute(annotation) || this.currentRoute;
+      routeGroups.set(route, (routeGroups.get(route) || 0) + 1);
+    }
+
+    let html = '<div class="count-summary">';
+    for (const [route, count] of routeGroups) {
+      let displayPath: string;
+      try {
+        displayPath = new URL(route).pathname;
+      } catch {
+        displayPath = route;
+      }
+      html += `<a class="summary-route" data-action="navigate-route" data-route-href="${this.escapeAttr(route)}">`;
+      html += `<span class="summary-path">${this.escapeHtmlStr(displayPath)}</span>`;
+      html += `<span class="summary-count">${count}</span>`;
+      html += '</a>';
+    }
+    html += '</div>';
+
+    return html;
+  }
+
+  private escapeHtmlStr(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  private escapeAttr(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   /**
@@ -839,6 +934,9 @@ export class AnnotationElement extends LitElement {
         showClearedFeedback: state.showClearedFeedback,
         showEntranceAnimation,
         settingsPanelHtml,
+        countSummaryHtml: this.showCountSummary && totalAnnotationCount > 0
+          ? this.generateCountSummary(annotations)
+          : '',
       });
     } else {
       this.toolbarShownOnce = false;

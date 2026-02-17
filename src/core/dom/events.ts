@@ -266,10 +266,29 @@ export function createEventHandlers(
       // Still allow Escape key to work for closing popups
       if (event.key === 'Escape') {
         handleEscape(state, event);
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        return;
       }
-      // For all other keys when typing in annotation UI, prevent propagation
-      event.stopPropagation();
-      event.stopImmediatePropagation();
+
+      // Allow Enter/Shift+Enter from text inputs so popup textarea can handle:
+      // - Enter submit
+      // - Shift+Enter newline
+      const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+      const isTextInput = path.some((node) => {
+        if (node instanceof HTMLTextAreaElement) return true;
+        if (node instanceof HTMLInputElement) {
+          return !['button', 'checkbox', 'radio', 'submit', 'reset'].includes(node.type);
+        }
+        return false;
+      });
+      const shouldAllowTextareaEnter = isTextInput && event.key === 'Enter';
+
+      // Block all other annotation-origin keys from reaching page shortcuts.
+      if (!shouldAllowTextareaEnter) {
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+      }
       return;
     }
 
@@ -304,6 +323,7 @@ export function createEventHandlers(
 
     // Prevent annotation UI events from propagating
     if (isAnnotationEvent(event)) {
+      // Keep annotation UI key events from reaching page-level shortcuts.
       event.stopPropagation();
       event.stopImmediatePropagation();
       return;

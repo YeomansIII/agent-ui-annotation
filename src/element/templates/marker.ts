@@ -17,6 +17,40 @@ export interface MarkerRenderOptions {
 }
 
 /**
+ * Check if an element is visible within all its ancestor scroll containers.
+ * Returns false if the element is clipped (scrolled out of view) by any ancestor.
+ */
+function isVisibleInScrollAncestors(element: Element): boolean {
+  const elementRect = element.getBoundingClientRect();
+  let current = element.parentElement;
+
+  while (current && current !== document.documentElement) {
+    const style = getComputedStyle(current);
+    const overflowX = style.overflowX;
+    const overflowY = style.overflowY;
+
+    if (
+      overflowX === 'hidden' || overflowX === 'scroll' || overflowX === 'auto' ||
+      overflowY === 'hidden' || overflowY === 'scroll' || overflowY === 'auto'
+    ) {
+      const containerRect = current.getBoundingClientRect();
+      if (
+        elementRect.bottom <= containerRect.top ||
+        elementRect.top >= containerRect.bottom ||
+        elementRect.right <= containerRect.left ||
+        elementRect.left >= containerRect.right
+      ) {
+        return false;
+      }
+    }
+
+    current = current.parentElement;
+  }
+
+  return true;
+}
+
+/**
  * Calculate marker position based on live element or stored coordinates.
  *
  * When the annotation has a connected DOM element, we use
@@ -37,6 +71,11 @@ function getMarkerPosition(
 
     // Element is hidden (zero dimensions — display:none, collapsed, etc.)
     if (rect.width === 0 && rect.height === 0) {
+      return { x: 0, y: 0, hidden: true };
+    }
+
+    // Element is clipped by an ancestor scroll container
+    if (!isVisibleInScrollAncestors(annotation.element)) {
       return { x: 0, y: 0, hidden: true };
     }
 
@@ -93,15 +132,17 @@ export function renderMarker(options: MarkerRenderOptions): string {
       title="${annotation.elementInfo.humanReadable}"
     >
       ${isDots ? '' : annotation.number}
-      ${!isDots && isHovered ? renderMarkerTooltip(annotation, skipTooltipAnimation) : ''}
+      ${!isDots && isHovered ? renderMarkerTooltip(annotation, skipTooltipAnimation, pos.x, pos.y) : ''}
     </div>
   `;
 }
 
 /**
- * Render marker tooltip
+ * Render marker tooltip with viewport-aware positioning.
+ * Uses the marker's viewport position to determine if the tooltip
+ * should appear below (near top edge) or shift horizontally (near side edges).
  */
-function renderMarkerTooltip(annotation: Annotation, skipAnimation: boolean): string {
+function renderMarkerTooltip(annotation: Annotation, skipAnimation: boolean, markerX: number, markerY: number): string {
   const element = annotation.elementInfo.humanReadable;
   const comment = annotation.comment
     ? annotation.comment.length > 100
@@ -109,8 +150,28 @@ function renderMarkerTooltip(annotation: Annotation, skipAnimation: boolean): st
       : annotation.comment
     : t('marker.noComment');
 
+  const tooltipWidth = 300; // max-width from CSS
+  const tooltipHeight = 60; // approximate
+  const edgeMargin = 16;
+
+  const classes = ['marker-tooltip'];
+
+  // Vertical: show below if marker is too close to top of viewport
+  if (markerY < tooltipHeight + edgeMargin + 24) {
+    classes.push('below');
+  }
+
+  // Horizontal: shift if marker is too close to viewport edges
+  if (markerX < tooltipWidth / 2 + edgeMargin) {
+    classes.push('align-start');
+  } else if (markerX > window.innerWidth - tooltipWidth / 2 - edgeMargin) {
+    classes.push('align-end');
+  }
+
+  if (skipAnimation) classes.push('no-animate');
+
   return `
-    <div class="marker-tooltip${skipAnimation ? ' no-animate' : ''}">
+    <div class="${classes.join(' ')}">
       <div class="tooltip-element">${escapeHtml(element)}</div>
       <div class="tooltip-comment">${escapeHtml(comment)}</div>
     </div>

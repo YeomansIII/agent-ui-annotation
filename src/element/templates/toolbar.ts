@@ -111,6 +111,7 @@ export function renderExpandedToolbar(options: {
   showClearedFeedback: boolean;
   showEntranceAnimation?: boolean;
   settingsPanelHtml?: string;
+  countSummaryHtml?: string;
 }): string {
   const {
     annotationCount,
@@ -121,6 +122,7 @@ export function renderExpandedToolbar(options: {
     showClearedFeedback,
     showEntranceAnimation = false,
     settingsPanelHtml = '',
+    countSummaryHtml = '',
   } = options;
 
   const eyeIcon = markerVisibility === 'full'
@@ -154,6 +156,7 @@ export function renderExpandedToolbar(options: {
       <div class="annotation-count">
         ${icons.annotation}
         <span class="count">${annotationCount}</span>
+        ${countSummaryHtml}
       </div>
 
       <div class="separator"></div>

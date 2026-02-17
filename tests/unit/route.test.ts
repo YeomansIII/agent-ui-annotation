@@ -156,4 +156,27 @@ describe('isAnnotationVisibleOnRoute', () => {
     const annotation = createMockAnnotation({ route: 'http://localhost:3000/page#section1' });
     expect(isAnnotationVisibleOnRoute(annotation, 'http://localhost:3000/page')).toBe(true);
   });
+
+  it('should return true on any route when annotation element is connected', () => {
+    // Simulate an element that exists on multiple routes (e.g., a nav item)
+    const annotation = createMockAnnotation({ route: 'http://localhost:3000/alpha' });
+    const mockElement = document.createElement('div');
+    document.body.appendChild(mockElement); // makes isConnected = true
+    annotation.element = mockElement;
+
+    // Should be visible on a DIFFERENT route because element is connected
+    expect(isAnnotationVisibleOnRoute(annotation, 'http://localhost:3000/beta')).toBe(true);
+
+    document.body.removeChild(mockElement);
+  });
+
+  it('should fall back to route matching when element is disconnected', () => {
+    const annotation = createMockAnnotation({ route: 'http://localhost:3000/alpha' });
+    const mockElement = document.createElement('div');
+    // NOT appended to DOM, so isConnected = false
+    annotation.element = mockElement;
+
+    expect(isAnnotationVisibleOnRoute(annotation, 'http://localhost:3000/beta')).toBe(false);
+    expect(isAnnotationVisibleOnRoute(annotation, 'http://localhost:3000/alpha')).toBe(true);
+  });
 });

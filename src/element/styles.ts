@@ -170,6 +170,7 @@ export const componentStyles = css`
 
   /* Annotation count */
   .annotation-count {
+    position: relative;
     display: flex;
     align-items: center;
     gap: var(--as-space-xs);
@@ -177,11 +178,67 @@ export const componentStyles = css`
     font-size: var(--as-font-size-sm);
     font-weight: 500;
     color: var(--as-text-secondary);
+    cursor: default;
+  }
+
+  .annotation-count svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
   }
 
   .annotation-count .count {
     color: var(--as-text-primary);
     font-weight: 600;
+  }
+
+  /* Count summary popup (shown on hover over annotation count) */
+  .count-summary {
+    position: absolute;
+    bottom: calc(100% + var(--as-space-md));
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 140px;
+    max-width: 220px;
+    padding: var(--as-space-sm);
+    background: var(--as-bg-primary);
+    border: 1px solid var(--as-border-primary);
+    border-radius: var(--as-radius-md);
+    box-shadow: var(--as-shadow-md);
+    animation: tooltip-enter-simple 0.15s ease-out;
+    z-index: var(--as-z-tooltip);
+  }
+
+  .summary-route {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--as-space-sm);
+    padding: 4px var(--as-space-sm);
+    border-radius: var(--as-radius-sm);
+    text-decoration: none;
+    color: var(--as-text-secondary);
+    font-size: var(--as-font-size-xs);
+    cursor: pointer;
+    transition: background var(--as-transition-fast), color var(--as-transition-fast);
+  }
+
+  .summary-route:hover {
+    background: var(--as-bg-hover);
+    color: var(--as-accent);
+  }
+
+  .summary-path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--as-font-mono);
+  }
+
+  .summary-count {
+    flex-shrink: 0;
+    font-weight: 600;
+    color: var(--as-text-primary);
   }
 
   /* Feedback toast */
@@ -353,6 +410,55 @@ export const componentStyles = css`
     color: var(--as-text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* Marker tooltip: show below when near top edge */
+  .marker-tooltip.below {
+    bottom: auto;
+    top: calc(100% + 8px);
+  }
+
+  .marker-tooltip.below::after {
+    top: auto;
+    bottom: 100%;
+    border-top-color: transparent;
+    border-bottom-color: var(--as-bg-primary);
+  }
+
+  /* Marker tooltip: align left when near right edge */
+  .marker-tooltip.align-start {
+    left: -8px;
+    transform: none;
+  }
+
+  .marker-tooltip.align-start::after {
+    left: 20px;
+    transform: none;
+  }
+
+  /* Marker tooltip: align right when near left edge */
+  .marker-tooltip.align-end {
+    left: auto;
+    right: -8px;
+    transform: none;
+  }
+
+  .marker-tooltip.align-end::after {
+    left: auto;
+    right: 20px;
+    transform: none;
+  }
+
+  /* Simpler entrance animation for repositioned tooltips */
+  .marker-tooltip.below,
+  .marker-tooltip.align-start,
+  .marker-tooltip.align-end {
+    animation-name: tooltip-enter-simple;
+  }
+
+  @keyframes tooltip-enter-simple {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
 
   /* Popup - Popover style (positioned near click point) */

@@ -37,6 +37,13 @@ export function getAnnotationRoute(annotation: Annotation): string | null {
 }
 
 export function isAnnotationVisibleOnRoute(annotation: Annotation, currentRoute: string): boolean {
+  // If the annotation's element is currently connected to the DOM, always show it.
+  // This handles elements that exist on multiple routes (e.g., navigation, headers).
+  if (annotation.element && annotation.element.isConnected) {
+    return true;
+  }
+
+  // For annotations without a live element, fall back to route matching
   const annotationRoute = getAnnotationRoute(annotation);
   if (!annotationRoute) return true;
   return annotationRoute === currentRoute;

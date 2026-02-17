@@ -183,6 +183,7 @@
             { title: 'Scroll Tracking', text: 'Markers follow their target elements when you scroll.' },
             { title: 'Output Levels', text: 'Choose between minimal, standard, and forensic detail.' },
           ]},
+          { heading: 'Deletable Elements', cards: 'deletable' },
           { heading: 'More Content', cards: [
             { title: 'Card A', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' },
             { title: 'Card B', text: 'Ut enim ad minim veniam, quis nostrud exercitation ullamco.' },
@@ -275,6 +276,31 @@
 
       data.sections.forEach(function(section) {
         var slug = section.heading.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+        if (section.cards === 'deletable') {
+          // Special deletable elements section
+          html += '<section class="scroll-section" id="section-' + slug + '">'
+            + '<h2>' + section.heading + '</h2>'
+            + '<p style="color:#9aa4b2;font-size:13px;margin-bottom:16px;">'
+            + 'Annotate the cards below, then press "Delete" to remove them. '
+            + 'Annotations should remain visible (with fallback positioning) after the element is gone.</p>'
+            + '<div class="card-grid" id="deletable-grid">'
+            + '<div class="card" id="deletable-card-1"><h3>Deletable Card A</h3>'
+            + '<p>Annotate me, then delete me.</p>'
+            + '<button style="margin-top:8px;padding:4px 12px;background:#ff3b30;border:none;color:white;border-radius:6px;cursor:pointer;font-size:12px" '
+            + 'onclick="this.closest(\'.card\').remove()">Delete</button></div>'
+            + '<div class="card" id="deletable-card-2"><h3>Deletable Card B</h3>'
+            + '<p>I can also be deleted!</p>'
+            + '<button style="margin-top:8px;padding:4px 12px;background:#ff3b30;border:none;color:white;border-radius:6px;cursor:pointer;font-size:12px" '
+            + 'onclick="this.closest(\'.card\').remove()">Delete</button></div>'
+            + '<div class="card" id="deletable-card-3"><h3>Deletable Card C</h3>'
+            + '<p>Delete me to see what happens.</p>'
+            + '<button style="margin-top:8px;padding:4px 12px;background:#ff3b30;border:none;color:white;border-radius:6px;cursor:pointer;font-size:12px" '
+            + 'onclick="this.closest(\'.card\').remove()">Delete</button></div>'
+            + '</div></section>';
+          return;
+        }
+
         html += '<section class="scroll-section" id="section-' + slug + '">'
           + '<h2>' + section.heading + '</h2><div class="card-grid">';
         section.cards.forEach(function(card, i) {

@@ -71,7 +71,8 @@ describe('Event blocking', () => {
       expect(event.stopPropagation).toHaveBeenCalled();
     });
 
-    it('should block mousedown events from reaching the page', () => {
+    it('should block mousedown events from reaching the page in multi-select mode', () => {
+      store.setState({ mode: 'multi-select' });
       const event = createMockEvent(MouseEvent, 'mousedown', { clientX: 100, clientY: 200 });
       target.dispatchEvent(event);
 
