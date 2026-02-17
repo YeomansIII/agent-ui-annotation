@@ -489,6 +489,12 @@ export class AnnotationElement extends LitElement {
 
     if (!this.core) return;
 
+    // Close annotations panel when interacting with any other toolbar control
+    if (action && action !== 'annotations' && this.showCountSummary) {
+      this.showCountSummary = false;
+      this.requestUpdate();
+    }
+
     switch (action) {
       case 'toggle':
         this.core.toggle();
@@ -578,7 +584,19 @@ export class AnnotationElement extends LitElement {
 
     // Handle marker click
     if (annotationId && !action) {
-      this.core.showPopup(annotationId);
+      if (this.showCountSummary) {
+        this.showCountSummary = false;
+      }
+      const listItem = target.closest('.annotation-preview-item') as HTMLElement | null;
+      if (listItem) {
+        const rect = listItem.getBoundingClientRect();
+        this.core.showPopup(annotationId, {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        });
+      } else {
+        this.core.showPopup(annotationId);
+      }
     }
 
     // Handle settings panel changes
@@ -765,7 +783,24 @@ export class AnnotationElement extends LitElement {
       routeGroups.set(route, list);
     }
 
-    let html = `<div class="annotations-panel" data-annotation-list-panel><div class="annotations-panel-title">${this.escapeHtmlStr(t('toolbar.annotations'))}</div>`;
+    let html = `<div class="settings-panel annotation-list-panel" data-annotation-list-panel><div class="settings-title">${this.escapeHtmlStr(t('toolbar.annotations'))}</div>`;
+
+    if (routeGroups.size === 1) {
+      const [, singleRouteAnnotations] = Array.from(routeGroups.entries())[0];
+      html += '<div class="annotations-preview-list">';
+      for (const annotation of singleRouteAnnotations.sort((a, b) => a.number - b.number)) {
+        const commentPreview = annotation.comment.trim() || t('marker.noComment');
+        html += `<div class="annotation-preview-item" data-annotation-id="${annotation.id}">`;
+        html += `<span class="annotation-preview-marker marker-badge">${annotation.number}</span>`;
+        html += `<span class="annotation-preview-target">${this.escapeHtmlStr(annotation.elementInfo.humanReadable)}</span>`;
+        html += `<span class="annotation-preview-comment">${this.escapeHtmlStr(commentPreview)}</span>`;
+        html += '</div>';
+      }
+      html += '</div>';
+      html += '</div>';
+      return html;
+    }
+
     for (const [route, routeAnnotations] of routeGroups) {
       let displayPath: string;
       try {
@@ -783,8 +818,8 @@ export class AnnotationElement extends LitElement {
 
       for (const annotation of routeAnnotations.sort((a, b) => a.number - b.number)) {
         const commentPreview = annotation.comment.trim() || t('marker.noComment');
-        html += '<div class="annotation-preview-item">';
-        html += `<span class="annotation-preview-number">#${annotation.number}</span>`;
+        html += `<div class="annotation-preview-item" data-annotation-id="${annotation.id}">`;
+        html += `<span class="annotation-preview-marker marker-badge">${annotation.number}</span>`;
         html += `<span class="annotation-preview-target">${this.escapeHtmlStr(annotation.elementInfo.humanReadable)}</span>`;
         html += `<span class="annotation-preview-comment">${this.escapeHtmlStr(commentPreview)}</span>`;
         html += '</div>';
@@ -817,12 +852,8 @@ export class AnnotationElement extends LitElement {
     if (!elementInfo && !existingAnnotation) return nothing;
 
     const info = elementInfo!;
-    const clickX = existingAnnotation ? existingAnnotation.clickX : state.popupClickX;
-    const rawClickY = existingAnnotation ? existingAnnotation.clickY : state.popupClickY;
-    // Existing annotations store document-absolute coords, convert to viewport for popup
-    const clickY = existingAnnotation
-      ? rawClickY - window.scrollY
-      : rawClickY;
+    const clickX = state.popupClickX || existingAnnotation?.clickX || 0;
+    const clickY = state.popupClickY || (existingAnnotation ? existingAnnotation.clickY - window.scrollY : 0);
 
     const position = this.popupPosition ?? calculatePopupPosition(clickX, clickY);
 

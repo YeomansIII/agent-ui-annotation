@@ -82,7 +82,7 @@ export interface AnnotationCore {
   getOutput: (level?: OutputLevel) => string;
 
   /** Show popup for creating/editing annotation */
-  showPopup: (annotationId?: AnnotationId) => void;
+  showPopup: (annotationId?: AnnotationId, anchor?: { x: number; y: number }) => void;
   /** Hide popup */
   hidePopup: () => void;
 
@@ -415,17 +415,19 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
   /**
    * Show popup for creating/editing annotation
    */
-  const showPopup = (annotationId?: AnnotationId) => {
+  const showPopup = (annotationId?: AnnotationId, anchor?: { x: number; y: number }) => {
     if (annotationId) {
-      // Editing existing annotation - use its stored click position
+      // Editing existing annotation - default to its stored click position,
+      // but allow caller to override with a custom viewport anchor.
       const annotation = store.getState().annotations.get(annotationId);
       if (annotation) {
-        const popupClickY = annotation.clickY - window.scrollY;
+        const popupClickX = anchor?.x ?? annotation.clickX;
+        const popupClickY = anchor?.y ?? (annotation.clickY - window.scrollY);
         store.setState({
           popupVisible: true,
           popupAnnotationId: annotationId,
           popupElementInfo: annotation.elementInfo,
-          popupClickX: annotation.clickX,
+          popupClickX,
           popupClickY: popupClickY,
         });
         return;

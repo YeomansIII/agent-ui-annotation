@@ -192,32 +192,30 @@ export const componentStyles = css`
     font-weight: 600;
   }
 
-  /* Annotation summary modal (opened by annotation count button) */
-  .annotations-panel {
-    position: absolute;
-    bottom: calc(100% + var(--as-space-md));
+  /* Annotation summary modal (reuses settings panel styles/animation) */
+  .annotation-list-panel {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    bottom: auto;
     left: 50%;
+    right: auto;
     transform: translateX(-50%);
     width: 360px;
     max-width: min(90vw, 420px);
-    max-height: 360px;
+    max-height: min(60vh, 420px);
     overflow: auto;
-    padding: var(--as-space-md);
-    background: var(--as-bg-primary);
-    border: 1px solid var(--as-border-primary);
-    border-radius: var(--as-radius-lg);
-    box-shadow: var(--as-shadow-lg);
-    animation: tooltip-enter-simple 0.15s ease-out;
-    z-index: var(--as-z-tooltip);
+    animation: settings-enter-centered 0.2s ease-out;
   }
 
-  .annotations-panel-title {
-    font-size: var(--as-font-size-sm);
-    font-weight: 600;
-    color: var(--as-text-primary);
-    margin-bottom: var(--as-space-sm);
-    padding-bottom: var(--as-space-xs);
-    border-bottom: 1px solid var(--as-border-primary);
+  @keyframes settings-enter-centered {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
   }
 
   .annotations-route {
@@ -263,15 +261,19 @@ export const componentStyles = css`
     border-radius: var(--as-radius-sm);
     background: var(--as-bg-primary);
     border: 1px solid var(--as-border-primary);
+    cursor: pointer;
+    transition: background var(--as-transition-fast), border-color var(--as-transition-fast);
   }
 
-  .annotation-preview-number {
+  .annotation-preview-item:hover {
+    background: var(--as-bg-hover);
+    border-color: var(--as-accent);
+  }
+
+  .annotation-preview-marker {
     grid-column: 1;
     grid-row: 1 / span 2;
-    font-family: var(--as-font-mono);
-    font-size: var(--as-font-size-xs);
-    color: var(--as-accent);
-    font-weight: 600;
+    align-self: center;
   }
 
   .annotation-preview-target {
@@ -367,9 +369,9 @@ export const componentStyles = css`
     pointer-events: none;
   }
 
-  /* Individual marker */
+  /* Reusable marker badge (used by markers + annotation list items) */
+  .marker-badge,
   .marker {
-    position: absolute;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -382,6 +384,11 @@ export const componentStyles = css`
     font-size: var(--as-font-size-xs);
     font-weight: 700;
     box-shadow: var(--as-shadow-md);
+  }
+
+  /* Individual marker */
+  .marker {
+    position: absolute;
     pointer-events: auto;
     cursor: pointer;
     transform: translate(-50%, -50%);

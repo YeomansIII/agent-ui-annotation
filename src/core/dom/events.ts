@@ -284,8 +284,9 @@ export function createEventHandlers(
       });
       const shouldAllowTextareaEnter = isTextInput && event.key === 'Enter';
 
-      // Block all other annotation-origin keys from reaching page shortcuts.
-      if (!shouldAllowTextareaEnter) {
+      // Only block annotation-origin keys while the annotation popup is open.
+      // This keeps page shortcuts (e.g. Space/G) working when only the toolbar is open.
+      if (state.popupVisible && !shouldAllowTextareaEnter) {
         event.stopPropagation();
         event.stopImmediatePropagation();
       }
@@ -305,8 +306,8 @@ export function createEventHandlers(
     // Always handle Escape for the annotation tool
     handleEscape(state, event);
 
-    // Block ALL keyboard events from reaching the page when blockInteractions is ON
-    if (state.mode !== 'disabled' && state.settings.blockInteractions) {
+    // Only block page keyboard shortcuts while the annotation popup is open.
+    if (state.mode !== 'disabled' && state.settings.blockInteractions && state.popupVisible) {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
@@ -321,15 +322,17 @@ export function createEventHandlers(
       setPassthroughMode(false);
     }
 
-    // Prevent annotation UI events from propagating
+    // Prevent annotation UI key events from propagating only while popup is open
     if (isAnnotationEvent(event)) {
-      // Keep annotation UI key events from reaching page-level shortcuts.
-      event.stopPropagation();
-      event.stopImmediatePropagation();
+      if (state.popupVisible) {
+        // Keep annotation UI key events from reaching page-level shortcuts.
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+      }
       return;
     }
 
-    if (state.mode !== 'disabled' && state.settings.blockInteractions) {
+    if (state.mode !== 'disabled' && state.settings.blockInteractions && state.popupVisible) {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
