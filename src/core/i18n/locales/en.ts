@@ -14,6 +14,7 @@ export const en: TranslationStrings = {
     dotsMode: 'Dots only',
     copyToClipboard: 'Copy to clipboard',
     clearAll: 'Clear all',
+    annotations: 'Annotations',
     toggleTheme: 'Toggle theme',
     settings: 'Settings',
     close: 'Close',

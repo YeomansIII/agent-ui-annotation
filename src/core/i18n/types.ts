@@ -13,6 +13,7 @@ export interface TranslationStrings {
     dotsMode: string;
     copyToClipboard: string;
     clearAll: string;
+    annotations: string;
     toggleTheme: string;
     settings: string;
     close: string;

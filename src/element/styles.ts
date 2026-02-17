@@ -168,45 +168,128 @@ export const componentStyles = css`
     margin: 0 var(--as-space-xs);
   }
 
-  /* Annotation count */
-  .annotation-count {
+  /* Annotation count button */
+  .annotation-count-btn {
     position: relative;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: var(--as-space-xs);
     padding: 0 var(--as-space-sm);
     font-size: var(--as-font-size-sm);
     font-weight: 500;
     color: var(--as-text-secondary);
-    cursor: default;
   }
 
-  .annotation-count svg {
+  .annotation-count-btn svg {
     width: 16px;
     height: 16px;
     flex-shrink: 0;
   }
 
-  .annotation-count .count {
+  .annotation-count-btn .count {
     color: var(--as-text-primary);
     font-weight: 600;
   }
 
-  /* Count summary popup (shown on hover over annotation count) */
-  .count-summary {
+  /* Annotation summary modal (opened by annotation count button) */
+  .annotations-panel {
     position: absolute;
     bottom: calc(100% + var(--as-space-md));
     left: 50%;
     transform: translateX(-50%);
-    min-width: 140px;
-    max-width: 220px;
-    padding: var(--as-space-sm);
+    width: 360px;
+    max-width: min(90vw, 420px);
+    max-height: 360px;
+    overflow: auto;
+    padding: var(--as-space-md);
     background: var(--as-bg-primary);
     border: 1px solid var(--as-border-primary);
-    border-radius: var(--as-radius-md);
-    box-shadow: var(--as-shadow-md);
+    border-radius: var(--as-radius-lg);
+    box-shadow: var(--as-shadow-lg);
     animation: tooltip-enter-simple 0.15s ease-out;
     z-index: var(--as-z-tooltip);
+  }
+
+  .annotations-panel-title {
+    font-size: var(--as-font-size-sm);
+    font-weight: 600;
+    color: var(--as-text-primary);
+    margin-bottom: var(--as-space-sm);
+    padding-bottom: var(--as-space-xs);
+    border-bottom: 1px solid var(--as-border-primary);
+  }
+
+  .annotations-route {
+    border: 1px solid var(--as-border-primary);
+    border-radius: var(--as-radius-md);
+    background: var(--as-bg-secondary);
+    margin-bottom: var(--as-space-sm);
+    overflow: hidden;
+  }
+
+  .annotations-route:last-child {
+    margin-bottom: 0;
+  }
+
+  .annotations-route > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--as-space-sm);
+    padding: var(--as-space-sm) var(--as-space-md);
+    cursor: pointer;
+    list-style: none;
+    color: var(--as-text-secondary);
+    font-size: var(--as-font-size-xs);
+  }
+
+  .annotations-route > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .annotations-preview-list {
+    padding: 0 var(--as-space-sm) var(--as-space-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .annotation-preview-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px var(--as-space-sm);
+    padding: var(--as-space-xs) var(--as-space-sm);
+    border-radius: var(--as-radius-sm);
+    background: var(--as-bg-primary);
+    border: 1px solid var(--as-border-primary);
+  }
+
+  .annotation-preview-number {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    font-family: var(--as-font-mono);
+    font-size: var(--as-font-size-xs);
+    color: var(--as-accent);
+    font-weight: 600;
+  }
+
+  .annotation-preview-target {
+    grid-column: 2;
+    font-size: var(--as-font-size-xs);
+    color: var(--as-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .annotation-preview-comment {
+    grid-column: 2;
+    font-size: var(--as-font-size-xs);
+    color: var(--as-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .summary-route {

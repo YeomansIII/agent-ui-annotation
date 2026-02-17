@@ -111,7 +111,7 @@ export function renderExpandedToolbar(options: {
   showClearedFeedback: boolean;
   showEntranceAnimation?: boolean;
   settingsPanelHtml?: string;
-  countSummaryHtml?: string;
+  annotationsPanelHtml?: string;
 }): string {
   const {
     annotationCount,
@@ -122,7 +122,7 @@ export function renderExpandedToolbar(options: {
     showClearedFeedback,
     showEntranceAnimation = false,
     settingsPanelHtml = '',
-    countSummaryHtml = '',
+    annotationsPanelHtml = '',
   } = options;
 
   const eyeIcon = markerVisibility === 'full'
@@ -142,6 +142,7 @@ export function renderExpandedToolbar(options: {
       ${showCopiedFeedback ? `<div class="feedback success">${t('toolbar.copiedFeedback')}</div>` : ''}
       ${showClearedFeedback ? `<div class="feedback">${t('toolbar.clearedFeedback')}</div>` : ''}
       ${settingsPanelHtml}
+      ${annotationsPanelHtml}
 
       <button class="toolbar-btn ${isFrozen ? 'active' : ''}" title="${isFrozen ? t('toolbar.unfreeze') : t('toolbar.freeze')}" data-action="freeze">
         ${isFrozen ? icons.unfreeze : icons.freeze}
@@ -153,11 +154,10 @@ export function renderExpandedToolbar(options: {
 
       <div class="separator"></div>
 
-      <div class="annotation-count">
+      <button class="toolbar-btn annotation-count-btn" title="${t('toolbar.annotations')}" data-action="annotations">
         ${icons.annotation}
         <span class="count">${annotationCount}</span>
-        ${countSummaryHtml}
-      </div>
+      </button>
 
       <div class="separator"></div>
 

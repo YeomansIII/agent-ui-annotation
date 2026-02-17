@@ -14,6 +14,7 @@ export const zhCN: TranslationStrings = {
     dotsMode: '仅显示圆点',
     copyToClipboard: '复制到剪贴板',
     clearAll: '清除全部',
+    annotations: '标注列表',
     toggleTheme: '切换主题',
     settings: '设置',
     close: '关闭',

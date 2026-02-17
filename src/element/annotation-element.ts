@@ -404,13 +404,18 @@ export class AnnotationElement extends LitElement {
     if (!this.core) return;
 
     const state = this.core.store.getState();
-    if (!state.settingsPanelVisible) return;
+    if (!state.settingsPanelVisible && !this.showCountSummary) return;
 
     const path = event.composedPath();
     const clickedInside = path.some((el) => el === this);
 
     if (!clickedInside) {
-      this.core.store.setState({ settingsPanelVisible: false });
+      this.showCountSummary = false;
+      if (state.settingsPanelVisible) {
+        this.core.store.setState({ settingsPanelVisible: false });
+      } else {
+        this.requestUpdate();
+      }
     }
   }
 
@@ -526,7 +531,17 @@ export class AnnotationElement extends LitElement {
 
       case 'settings': {
         const currentState = this.core.store.getState();
+        this.showCountSummary = false;
         this.core.store.setState({ settingsPanelVisible: !currentState.settingsPanelVisible });
+        break;
+      }
+
+      case 'annotations': {
+        this.showCountSummary = !this.showCountSummary;
+        if (this.showCountSummary) {
+          this.core.store.setState({ settingsPanelVisible: false });
+        }
+        this.requestUpdate();
         break;
       }
 
@@ -620,14 +635,7 @@ export class AnnotationElement extends LitElement {
       return;
     }
 
-    // Annotation count hover → show summary
-    if (target.closest('.annotation-count')) {
-      if (!this.showCountSummary) {
-        this.showCountSummary = true;
-        this.requestUpdate();
-      }
-      return;
-    }
+    // annotation count panel is click-only
   }
 
   private handleMouseOut(event: Event) {
@@ -643,14 +651,7 @@ export class AnnotationElement extends LitElement {
       return;
     }
 
-    // Annotation count + summary hover
-    if (target.closest('.annotation-count')) {
-      if (!relatedTarget?.closest('.annotation-count')) {
-        this.showCountSummary = false;
-        this.requestUpdate();
-      }
-      return;
-    }
+    // annotation count panel is click-only
   }
 
   private handlePopupKeyDown(event: KeyboardEvent) {
@@ -756,24 +757,40 @@ export class AnnotationElement extends LitElement {
   private generateCountSummary(annotations: import('../core/types').Annotation[]): string {
     if (annotations.length === 0) return '';
 
-    const routeGroups = new Map<string, number>();
+    const routeGroups = new Map<string, import('../core/types').Annotation[]>();
     for (const annotation of annotations) {
       const route = getAnnotationRoute(annotation) || this.currentRoute;
-      routeGroups.set(route, (routeGroups.get(route) || 0) + 1);
+      const list = routeGroups.get(route) || [];
+      list.push(annotation);
+      routeGroups.set(route, list);
     }
 
-    let html = '<div class="count-summary">';
-    for (const [route, count] of routeGroups) {
+    let html = `<div class="annotations-panel" data-annotation-list-panel><div class="annotations-panel-title">${this.escapeHtmlStr(t('toolbar.annotations'))}</div>`;
+    for (const [route, routeAnnotations] of routeGroups) {
       let displayPath: string;
       try {
         displayPath = new URL(route).pathname;
       } catch {
         displayPath = route;
       }
-      html += `<a class="summary-route" data-action="navigate-route" data-route-href="${this.escapeAttr(route)}">`;
+
+      html += '<details class="annotations-route" open>';
+      html += '<summary>';
       html += `<span class="summary-path">${this.escapeHtmlStr(displayPath)}</span>`;
-      html += `<span class="summary-count">${count}</span>`;
-      html += '</a>';
+      html += `<span class="summary-count">${routeAnnotations.length}</span>`;
+      html += '</summary>';
+      html += '<div class="annotations-preview-list">';
+
+      for (const annotation of routeAnnotations.sort((a, b) => a.number - b.number)) {
+        const commentPreview = annotation.comment.trim() || t('marker.noComment');
+        html += '<div class="annotation-preview-item">';
+        html += `<span class="annotation-preview-number">#${annotation.number}</span>`;
+        html += `<span class="annotation-preview-target">${this.escapeHtmlStr(annotation.elementInfo.humanReadable)}</span>`;
+        html += `<span class="annotation-preview-comment">${this.escapeHtmlStr(commentPreview)}</span>`;
+        html += '</div>';
+      }
+
+      html += '</div></details>';
     }
     html += '</div>';
 
@@ -784,10 +801,6 @@ export class AnnotationElement extends LitElement {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
-  }
-
-  private escapeAttr(text: string): string {
-    return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
   /**
@@ -934,7 +947,7 @@ export class AnnotationElement extends LitElement {
         showClearedFeedback: state.showClearedFeedback,
         showEntranceAnimation,
         settingsPanelHtml,
-        countSummaryHtml: this.showCountSummary && totalAnnotationCount > 0
+        annotationsPanelHtml: this.showCountSummary && totalAnnotationCount > 0
           ? this.generateCountSummary(annotations)
           : '',
       });
