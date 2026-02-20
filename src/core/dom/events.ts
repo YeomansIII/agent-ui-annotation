@@ -179,18 +179,18 @@ export function createEventHandlers(
     const state = store.getState();
 
     if (state.mode === 'disabled') return;
-    if (state.mode !== 'multi-select') return;
     if (state.passthroughActive) return;
 
     const target = event.target as Element;
     if (isAnnotationElement(target)) return;
 
-    // Block from reaching the page when blockInteractions is ON
+    // Block mousedown from reaching the page when blockInteractions is ON
     if (state.settings.blockInteractions) {
       event.preventDefault();
       event.stopPropagation();
     }
 
+    // Only start multi-select drag in multi-select mode
     if (state.mode !== 'multi-select') return;
 
     const position: Position = {
@@ -293,9 +293,10 @@ export function createEventHandlers(
       return;
     }
 
-    // Event passthrough: temporarily give control back to the page for interactions
-    if (state.mode !== 'disabled' && (event.key === 'Escape')) {
-      if (!state.passthroughActive) {
+    // Event passthrough: temporarily give control back to the page for interactions.
+    // Only activate passthrough when there's nothing left to dismiss (no popup, no selection).
+    if (state.mode !== 'disabled' && event.key === 'Escape') {
+      if (!state.passthroughActive && !state.popupVisible && !state.isSelecting) {
         store.setState({ passthroughActive: true });
         setPassthroughMode(true);
         event.preventDefault();
@@ -303,7 +304,7 @@ export function createEventHandlers(
       }
     }
 
-    // Always handle Escape for the annotation tool
+    // Handle Escape for closing popups / canceling selection / deactivating
     handleEscape(state, event);
 
     // Only block page keyboard shortcuts while the annotation popup is open.

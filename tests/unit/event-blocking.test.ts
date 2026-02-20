@@ -1,9 +1,11 @@
 /**
  * Tests for event blocking behaviour
  *
- * When blockInteractions is ON and the tool is active, ALL click / keyboard /
- * mousedown / mouseup events on non-annotation targets must be blocked from
- * reaching the page.
+ * When blockInteractions is ON and the tool is active, ALL click / mousedown /
+ * mouseup events on non-annotation targets must be blocked from reaching the page.
+ *
+ * Keyboard events are only blocked when the popup is visible, so that page
+ * shortcuts (e.g. Space, G) work freely when only the toolbar is open.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -71,13 +73,22 @@ describe('Event blocking', () => {
       expect(event.stopPropagation).toHaveBeenCalled();
     });
 
-    it('should block mousedown events from reaching the page in multi-select mode', () => {
-      store.setState({ mode: 'multi-select' });
-      const event = createMockEvent(MouseEvent, 'mousedown', { clientX: 100, clientY: 200 });
-      target.dispatchEvent(event);
+    it('should block mousedown events from reaching the page in all modes', () => {
+      // select mode
+      store.setState({ mode: 'select' });
+      const selectEvent = createMockEvent(MouseEvent, 'mousedown', { clientX: 100, clientY: 200 });
+      target.dispatchEvent(selectEvent);
 
-      expect(event.preventDefault).toHaveBeenCalled();
-      expect(event.stopPropagation).toHaveBeenCalled();
+      expect(selectEvent.preventDefault).toHaveBeenCalled();
+      expect(selectEvent.stopPropagation).toHaveBeenCalled();
+
+      // multi-select mode
+      store.setState({ mode: 'multi-select' });
+      const multiEvent = createMockEvent(MouseEvent, 'mousedown', { clientX: 100, clientY: 200 });
+      target.dispatchEvent(multiEvent);
+
+      expect(multiEvent.preventDefault).toHaveBeenCalled();
+      expect(multiEvent.stopPropagation).toHaveBeenCalled();
     });
 
     it('should block mouseup events from reaching the page', () => {
@@ -88,7 +99,8 @@ describe('Event blocking', () => {
       expect(event.stopPropagation).toHaveBeenCalled();
     });
 
-    it('should block keydown events from reaching the page', () => {
+    it('should block keydown events from reaching the page when popup is visible', () => {
+      store.setState({ popupVisible: true });
       const event = createMockEvent(KeyboardEvent, 'keydown', { key: 'a' });
       target.dispatchEvent(event);
 
@@ -97,7 +109,17 @@ describe('Event blocking', () => {
       expect(event.stopImmediatePropagation).toHaveBeenCalled();
     });
 
-    it('should block keyup events from reaching the page', () => {
+    it('should NOT block keydown events when popup is NOT visible', () => {
+      store.setState({ popupVisible: false });
+      const event = createMockEvent(KeyboardEvent, 'keydown', { key: 'a' });
+      target.dispatchEvent(event);
+
+      expect(event.preventDefault).not.toHaveBeenCalled();
+      expect(event.stopPropagation).not.toHaveBeenCalled();
+    });
+
+    it('should block keyup events from reaching the page when popup is visible', () => {
+      store.setState({ popupVisible: true });
       const event = createMockEvent(KeyboardEvent, 'keyup', { key: 'a' });
       target.dispatchEvent(event);
 
@@ -106,7 +128,8 @@ describe('Event blocking', () => {
       expect(event.stopImmediatePropagation).toHaveBeenCalled();
     });
 
-    it('should block special keys like Tab and Enter', () => {
+    it('should block special keys like Tab and Enter when popup is visible', () => {
+      store.setState({ popupVisible: true });
       for (const key of ['Tab', 'Enter', ' ', 'ArrowDown']) {
         const event = createMockEvent(KeyboardEvent, 'keydown', { key });
         target.dispatchEvent(event);
@@ -156,6 +179,76 @@ describe('Event blocking', () => {
       const event = createMockEvent(KeyboardEvent, 'keydown', { key: 'a' });
       target.dispatchEvent(event);
       expect(event.stopPropagation).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('keyboard shortcut regression coverage', () => {
+    let popupRoot: HTMLDivElement;
+    let popupTextarea: HTMLTextAreaElement;
+
+    beforeEach(() => {
+      store.setState({ mode: 'select' });
+      handlers.attach();
+
+      popupRoot = document.createElement('div');
+      popupRoot.setAttribute('data-annotation-popup', '');
+      popupTextarea = document.createElement('textarea');
+      popupRoot.appendChild(popupTextarea);
+      document.body.appendChild(popupRoot);
+    });
+
+    afterEach(() => {
+      popupRoot.remove();
+    });
+
+    it('allows Space and g when toolbar is open but popup is closed', () => {
+      store.setState({ popupVisible: false });
+
+      const spaceEvent = createMockEvent(KeyboardEvent, 'keydown', { key: ' ' });
+      target.dispatchEvent(spaceEvent);
+      expect(spaceEvent.preventDefault).not.toHaveBeenCalled();
+      expect(spaceEvent.stopPropagation).not.toHaveBeenCalled();
+
+      const gEvent = createMockEvent(KeyboardEvent, 'keydown', { key: 'g' });
+      target.dispatchEvent(gEvent);
+      expect(gEvent.preventDefault).not.toHaveBeenCalled();
+      expect(gEvent.stopPropagation).not.toHaveBeenCalled();
+    });
+
+    it('blocks Space and g when popup is visible', () => {
+      store.setState({ popupVisible: true });
+
+      const spaceEvent = createMockEvent(KeyboardEvent, 'keydown', { key: ' ' });
+      target.dispatchEvent(spaceEvent);
+      expect(spaceEvent.preventDefault).toHaveBeenCalled();
+      expect(spaceEvent.stopPropagation).toHaveBeenCalled();
+      expect(spaceEvent.stopImmediatePropagation).toHaveBeenCalled();
+
+      const gEvent = createMockEvent(KeyboardEvent, 'keydown', { key: 'g' });
+      target.dispatchEvent(gEvent);
+      expect(gEvent.preventDefault).toHaveBeenCalled();
+      expect(gEvent.stopPropagation).toHaveBeenCalled();
+      expect(gEvent.stopImmediatePropagation).toHaveBeenCalled();
+    });
+
+    it('does not swallow Enter from annotation textarea while popup is visible', () => {
+      store.setState({ popupVisible: true });
+
+      const enterEvent = createMockEvent(KeyboardEvent, 'keydown', { key: 'Enter' });
+      popupTextarea.dispatchEvent(enterEvent);
+
+      expect(enterEvent.stopPropagation).not.toHaveBeenCalled();
+      expect(enterEvent.stopImmediatePropagation).not.toHaveBeenCalled();
+    });
+
+    it('swallows non-Enter keys from annotation popup while visible', () => {
+      store.setState({ popupVisible: true });
+
+      const gEvent = createMockEvent(KeyboardEvent, 'keydown', { key: 'g' });
+      popupTextarea.dispatchEvent(gEvent);
+
+      expect(gEvent.stopPropagation).toHaveBeenCalled();
+      expect(gEvent.stopImmediatePropagation).toHaveBeenCalled();
     });
   });
 });

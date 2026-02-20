@@ -47,6 +47,8 @@ function createMockAnnotation(context?: Record<string, unknown>): Annotation {
     isMultiSelect: false,
     clickX: 50,
     clickY: 20,
+    offsetX: 0.5,
+    offsetY: 0.5,
     context,
   };
 }

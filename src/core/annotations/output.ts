@@ -348,7 +348,7 @@ export function generateOutput(annotations: Annotation[], level: OutputLevel): s
       parts.push(generateHeader(level, sortedAnnotations.length, route));
     }
 
-  // Annotation content
+    // Annotation content
     for (const annotation of sortedAnnotations) {
       switch (level) {
         case 'compact':
@@ -365,7 +365,7 @@ export function generateOutput(annotations: Annotation[], level: OutputLevel): s
           break;
       }
 
-    // Add separator between annotations for non-compact levels
+      // Add separator between annotations for non-compact levels
       if (level !== 'compact') {
         parts.push('');
         parts.push('---');

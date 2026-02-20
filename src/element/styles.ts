@@ -193,29 +193,29 @@ export const componentStyles = css`
   }
 
   /* Annotation summary modal (reuses settings panel styles/animation) */
-  .annotation-list-panel {
-    position: fixed;
-    top: max(12px, env(safe-area-inset-top));
-    bottom: auto;
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
+  .settings-panel.annotation-list-panel {
     width: 360px;
-    max-width: min(90vw, 420px);
+    max-width: 90vw;
     max-height: min(60vh, 420px);
     overflow: auto;
-    animation: settings-enter-centered 0.2s ease-out;
   }
 
-  @keyframes settings-enter-centered {
-    from {
-      opacity: 0;
-      transform: translateX(-50%) translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
+  .settings-panel.annotation-list-panel::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .settings-panel.annotation-list-panel::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .settings-panel.annotation-list-panel::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.3);
+    border-radius: 3px;
+  }
+
+  .settings-panel.annotation-list-panel::-webkit-scrollbar-thumb:hover {
+    background: rgba(128, 128, 128, 0.5);
   }
 
   .annotations-route {
