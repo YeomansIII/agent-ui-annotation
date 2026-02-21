@@ -28,9 +28,10 @@ export function createHoverDetection(
   const processHover = (event: MouseEvent) => {
     const state = store.getState();
 
-    // Don't process hover when disabled or selecting
-    if (state.mode === 'disabled' || state.isSelecting) {
+    // Don't process hover when disabled, selecting, or in passthrough mode
+    if (state.mode === 'disabled' || state.isSelecting || state.passthroughActive) {
       if (state.hoveredElement !== null) {
+        currentElement = null;
         store.setState({
           hoveredElement: null,
           hoveredElementInfo: null,

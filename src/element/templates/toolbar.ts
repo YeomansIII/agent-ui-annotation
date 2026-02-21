@@ -30,6 +30,11 @@ export const icons = {
     <line x1="1" y1="1" x2="23" y2="23"/>
   </svg>`,
 
+  eyeDot: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+    <circle cx="12" cy="12" r="1.5" fill="currentColor"/>
+  </svg>`,
+
   copy: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -100,44 +105,59 @@ export function renderCollapsedToolbar(annotationCount: number): string {
 export function renderExpandedToolbar(options: {
   annotationCount: number;
   isFrozen: boolean;
-  markersVisible: boolean;
+  markerVisibility: 'full' | 'dots' | 'hidden';
   isDarkMode: boolean;
   showCopiedFeedback: boolean;
   showClearedFeedback: boolean;
   showEntranceAnimation?: boolean;
   settingsPanelHtml?: string;
+  annotationsPanelHtml?: string;
 }): string {
   const {
     annotationCount,
     isFrozen,
-    markersVisible,
+    markerVisibility,
     isDarkMode,
     showCopiedFeedback,
     showClearedFeedback,
     showEntranceAnimation = false,
     settingsPanelHtml = '',
+    annotationsPanelHtml = '',
   } = options;
+
+  const eyeIcon = markerVisibility === 'full'
+    ? icons.eye
+    : markerVisibility === 'dots'
+      ? icons.eyeDot
+      : icons.eyeOff;
+  const eyeActive = markerVisibility !== 'hidden';
+  const eyeTitle = markerVisibility === 'full'
+    ? t('toolbar.dotsMode')
+    : markerVisibility === 'dots'
+      ? t('toolbar.hideMarkers')
+      : t('toolbar.showMarkers');
 
   return `
     <div class="toolbar${showEntranceAnimation ? ' entering' : ''}" data-annotation-toolbar>
       ${showCopiedFeedback ? `<div class="feedback success">${t('toolbar.copiedFeedback')}</div>` : ''}
       ${showClearedFeedback ? `<div class="feedback">${t('toolbar.clearedFeedback')}</div>` : ''}
       ${settingsPanelHtml}
+      ${annotationsPanelHtml}
 
       <button class="toolbar-btn ${isFrozen ? 'active' : ''}" title="${isFrozen ? t('toolbar.unfreeze') : t('toolbar.freeze')}" data-action="freeze">
         ${isFrozen ? icons.unfreeze : icons.freeze}
       </button>
 
-      <button class="toolbar-btn ${markersVisible ? 'active' : ''}" title="${markersVisible ? t('toolbar.hideMarkers') : t('toolbar.showMarkers')}" data-action="toggle-markers">
-        ${markersVisible ? icons.eye : icons.eyeOff}
+      <button class="toolbar-btn ${eyeActive ? 'active' : ''}" title="${eyeTitle}" data-action="toggle-markers">
+        ${eyeIcon}
       </button>
 
       <div class="separator"></div>
 
-      <div class="annotation-count">
+      <button class="toolbar-btn annotation-count-btn" title="${t('toolbar.annotations')}" data-action="annotations">
         ${icons.annotation}
         <span class="count">${annotationCount}</span>
-      </div>
+      </button>
 
       <div class="separator"></div>
 

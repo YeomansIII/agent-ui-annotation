@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SPA Route Example</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    body { margin: 0; min-height: 100vh; background: #0b0f1a; color: #e7e9ee; }
+    header {
+      position: sticky; top: 0; z-index: 2;
+      background: rgba(11, 15, 26, 0.9);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    nav { display: flex; gap: 12px; align-items: center; padding: 16px 24px; }
+    nav button {
+      background: #1c2538; color: #e7e9ee;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px; padding: 8px 12px; cursor: pointer; font-size: 14px;
+    }
+    nav button.active { background: #4f46e5; border-color: #4f46e5; }
+    .route-label { margin-left: auto; font-size: 14px; color: #9aa4b2; }
+    main { padding: 40px 24px; display: grid; gap: 16px; padding-bottom: 60px; }
+    .panel {
+      border-radius: 12px; background: #121826;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 20px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+    }
+    .scroll-section {
+      border-radius: 12px; background: #121826;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 24px; min-height: 300px;
+    }
+    .scroll-section h2 { margin-top: 0; color: #a5b4fc; }
+    .scroll-section .card-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px; margin-top: 16px;
+    }
+    .scroll-section .card {
+      border-radius: 8px; background: #1c2538;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 16px; transition: border-color 0.2s;
+    }
+    .scroll-section .card:hover { border-color: rgba(79, 70, 229, 0.5); }
+    .scroll-section .card h3 { margin: 0 0 8px; font-size: 15px; color: #e7e9ee; }
+    .scroll-section .card p { margin: 0; font-size: 13px; color: #9aa4b2; line-height: 1.5; }
+    /* Nested scrollable container */
+    .scroll-container {
+      border-radius: 12px; background: #121826;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 24px;
+    }
+    .scroll-container h2 { margin-top: 0; color: #f0abfc; }
+    .scroll-container .scroll-inner {
+      max-height: 320px; overflow-y: auto;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 8px; padding: 12px;
+      background: rgba(0,0,0,0.15);
+    }
+    .scroll-container .scroll-inner::-webkit-scrollbar { width: 6px; }
+    .scroll-container .scroll-inner::-webkit-scrollbar-track { background: transparent; }
+    .scroll-container .scroll-inner::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+    .scroll-container .scroll-item {
+      border-radius: 8px; background: #1c2538;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 14px 16px; margin-bottom: 10px; transition: border-color 0.2s;
+    }
+    .scroll-container .scroll-item:last-child { margin-bottom: 0; }
+    .scroll-container .scroll-item:hover { border-color: rgba(168, 85, 247, 0.5); }
+    .scroll-container .scroll-item h4 { margin: 0 0 6px; font-size: 14px; color: #e7e9ee; }
+    .scroll-container .scroll-item p { margin: 0; font-size: 12px; color: #9aa4b2; line-height: 1.4; }
+    .status-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+      display: flex; align-items: center; gap: 18px; padding: 8px 24px;
+      background: rgba(11, 15, 26, 0.95); backdrop-filter: blur(10px);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 13px; color: #9aa4b2;
+    }
+    .status-bar .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #1c2538; border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px; padding: 4px 10px;
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+    }
+    .status-bar .badge.active {
+      background: rgba(79, 70, 229, 0.25);
+      border-color: rgba(79, 70, 229, 0.5); color: #c7d2fe;
+    }
+    .status-bar .badge kbd {
+      display: inline-block; background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px; padding: 1px 5px; font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <button data-route="/">Home</button>
+      <button data-route="/alpha">Alpha</button>
+      <button data-route="/beta">Beta</button>
+      <span class="route-label" id="routeLabel"></span>
+    </nav>
+  </header>
+  <main id="app"></main>
+  <div class="status-bar">
+    <span>Shortcuts:</span>
+    <span class="badge" id="previewBadge"><kbd>Space</kbd> Preview: OFF</span>
+    <span class="badge" id="gridBadge"><kbd>G</kbd> Grid: OFF</span>
+    <span class="badge" id="helpBadge"><kbd>?</kbd> Help: OFF</span>
+    <span style="margin-left:auto; opacity:0.5">Press keys to toggle</span>
+  </div>
+
+  <script type="module">
+    import { createAnnotation, initI18n } from 'agent-ui-annotation/vanilla';
+    initI18n({ locale: 'en' });
+    const annotation = createAnnotation({ theme: 'auto', outputLevel: 'standard' });
+
+    // ── Keyboard-driven app state ──
+    // Registered on WINDOW (same pattern as opentype-editor DrawingToolbar).
+    // window listeners fire after document listeners in bubbling phase,
+    // making this a realistic test for keyboard coexistence.
+    const appState = { preview: false, grid: false, help: false };
+
+    function updateStatusBar() {
+      [['preview','previewBadge','Preview','Space'],
+       ['grid','gridBadge','Grid','G'],
+       ['help','helpBadge','Help','?']].forEach(([key, id, label, shortcut]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = '';
+        const kbd = document.createElement('kbd');
+        kbd.textContent = shortcut;
+        el.appendChild(kbd);
+        el.appendChild(document.createTextNode(' ' + label + ': ' + (appState[key] ? 'ON' : 'OFF')));
+        el.classList.toggle('active', appState[key]);
+      });
+    }
+
+    function handleKeyDown(event) {
+      const tag = event.target && event.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || (event.target && event.target.isContentEditable)) return;
+      switch (event.key) {
+        case ' ':
+          event.preventDefault();
+          appState.preview = !appState.preview;
+          updateStatusBar();
+          break;
+        case 'g': case 'G':
+          appState.grid = !appState.grid;
+          updateStatusBar();
+          break;
+        case '?':
+          appState.help = !appState.help;
+          updateStatusBar();
+          break;
+      }
+    }
+
+    // Register on WINDOW (same pattern as opentype-editor)
+    window.addEventListener('keydown', handleKeyDown);
+
+    // ── Route content with scrollable sections ──
+    const routes = {
+      '/': {
+        title: 'Home Dashboard',
+        description: 'Overview widgets with quick actions.',
+        sections: [
+          { heading: 'Getting Started', cards: [
+            { title: 'Quick Setup', text: 'Install the package and add the custom element to your HTML.' },
+            { title: 'Configuration', text: 'Pass theme, outputLevel, and locale as attributes or properties.' },
+            { title: 'Keyboard Shortcuts', text: 'Press Space to toggle preview, G for grid, ? for help.' },
+            { title: 'Scroll Testing', text: 'This page has tall content to test annotation scroll tracking.' },
+          ]},
+          { heading: 'Feature Highlights', cards: [
+            { title: 'Route Awareness', text: 'Annotations scoped to the current route. Switch routes to filter.' },
+            { title: 'Persistent Storage', text: 'Annotations persist in localStorage keyed by origin.' },
+            { title: 'Multi-Select', text: 'Hold and drag to select multiple elements at once.' },
+            { title: 'Dots Mode', text: 'Toggle the eye button to cycle through full / dots / hidden.' },
+            { title: 'Scroll Tracking', text: 'Markers follow their target elements when you scroll.' },
+            { title: 'Output Levels', text: 'Choose between minimal, standard, and forensic detail.' },
+          ]},
+          { heading: 'Deletable Elements', cards: 'deletable' },
+          { heading: 'More Content', cards: [
+            { title: 'Card A', text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' },
+            { title: 'Card B', text: 'Ut enim ad minim veniam, quis nostrud exercitation ullamco.' },
+            { title: 'Card C', text: 'Duis aute irure dolor in reprehenderit in voluptate velit.' },
+            { title: 'Card D', text: 'Excepteur sint occaecat cupidatat non proident.' },
+            { title: 'Card E', text: 'Nemo enim ipsam voluptatem quia voluptas sit aspernatur.' },
+            { title: 'Card F', text: 'Neque porro quisquam est, qui dolorem ipsum quia dolor.' },
+          ]},
+          { heading: 'Even More Content', cards: [
+            { title: 'Section 4-A', text: 'Sed ut perspiciatis unde omnis iste natus error sit.' },
+            { title: 'Section 4-B', text: 'Nemo enim ipsam voluptatem quia voluptas sit aspernatur.' },
+            { title: 'Section 4-C', text: 'At vero eos et accusamus et iusto odio dignissimos.' },
+            { title: 'Section 4-D', text: 'Et harum quidem rerum facilis est et expedita distinctio.' },
+          ]},
+        ],
+      },
+      '/alpha': {
+        title: 'Alpha Controls',
+        description: 'Focus mode with toggles and alerts.',
+        sections: [
+          { heading: 'Toggle Controls', cards: [
+            { title: 'Dark Mode', text: 'Switch between light and dark colour schemes.' },
+            { title: 'Compact View', text: 'Reduce spacing for information-dense layouts.' },
+            { title: 'Notifications', text: 'Enable or disable push notifications.' },
+            { title: 'Auto-Save', text: 'Automatically save annotations every 30 seconds.' },
+          ]},
+          { heading: 'Alert Examples', cards: [
+            { title: 'Info Alert', text: 'This is an informational message about the current state.' },
+            { title: 'Warning Alert', text: 'Something needs attention but is not critical yet.' },
+            { title: 'Success Alert', text: 'The operation completed successfully!' },
+          ]},
+          { heading: 'Spacer Content', cards: [
+            { title: 'Alpha-X', text: 'Additional scrollable content for the alpha route.' },
+            { title: 'Alpha-Y', text: 'More cards to push the page well beyond the viewport.' },
+            { title: 'Alpha-Z', text: 'Last card in this section. Keep scrolling to test markers.' },
+          ]},
+        ],
+      },
+      '/beta': {
+        title: 'Beta Insights',
+        description: 'Metrics and charts for QA review.',
+        sections: [
+          { heading: 'Metrics Overview', cards: [
+            { title: 'Page Views', text: '12,345 views this week, up 8% from last week.' },
+            { title: 'Bounce Rate', text: '34.2% bounce rate. Target: below 30%.' },
+            { title: 'Avg Session', text: '4m 12s average session duration.' },
+            { title: 'Conversions', text: '2.8% conversion rate on the primary CTA.' },
+          ]},
+          { heading: 'Chart Placeholders', cards: [
+            { title: 'Line Chart', text: 'Trend data over the last 30 days would appear here.' },
+            { title: 'Bar Chart', text: 'Comparison of categories shown as vertical bars.' },
+            { title: 'Pie Chart', text: 'Distribution breakdown of traffic sources.' },
+          ]},
+          { heading: 'Deep Scroll Zone', cards: [
+            { title: 'Deep-1', text: 'Far down the page. Annotations here should track on scroll.' },
+            { title: 'Deep-2', text: 'Testing that markers reposition as the viewport moves.' },
+            { title: 'Deep-3', text: 'If this card marker follows it during scroll, tracking works!' },
+            { title: 'Deep-4', text: 'One more card for good measure.' },
+          ]},
+        ],
+      },
+    };
+
+    const routeLabel = document.getElementById('routeLabel');
+    const app = document.getElementById('app');
+    const navButtons = Array.from(document.querySelectorAll('nav button'));
+
+    function getRoute() {
+      return window.location.pathname + window.location.search;
+    }
+
+    function navigate(path) {
+      if (getRoute() === path) return;
+      history.pushState({}, '', path);
+      render();
+    }
+
+    function render() {
+      const route = getRoute();
+      const data = routes[route] || routes['/'];
+      navButtons.forEach(function(btn) {
+        btn.classList.toggle('active', btn.dataset.route === route);
+      });
+      routeLabel.textContent = 'Route: ' + route;
+
+      let html = '<section class="panel"><h1>' + data.title + '</h1>'
+        + '<p>' + data.description + '</p>'
+        + '<p>Create annotations on cards below and <strong>scroll</strong> to verify markers follow. '
+        + 'Use <kbd>Space</kbd>, <kbd>G</kbd>, <kbd>?</kbd> shortcuts \u2014 they should work even when the annotation tool is active.</p></section>';
+
+      data.sections.forEach(function(section) {
+        var slug = section.heading.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+        if (section.cards === 'deletable') {
+          // Special deletable elements section
+          html += '<section class="scroll-section" id="section-' + slug + '">'
+            + '<h2>' + section.heading + '</h2>'
+            + '<p style="color:#9aa4b2;font-size:13px;margin-bottom:16px;">'
+            + 'Annotate the cards below, then press "Delete" to remove them. '
+            + 'Annotations should remain visible (with fallback positioning) after the element is gone.</p>'
+            + '<div class="card-grid" id="deletable-grid">'
+            + '<div class="card" id="deletable-card-1"><h3>Deletable Card A</h3>'
+            + '<p>Annotate me, then delete me.</p>'
+            + '<button style="margin-top:8px;padding:4px 12px;background:#ff3b30;border:none;color:white;border-radius:6px;cursor:pointer;font-size:12px" '
+            + 'onclick="this.closest(\'.card\').remove()">Delete</button></div>'
+            + '<div class="card" id="deletable-card-2"><h3>Deletable Card B</h3>'
+            + '<p>I can also be deleted!</p>'
+            + '<button style="margin-top:8px;padding:4px 12px;background:#ff3b30;border:none;color:white;border-radius:6px;cursor:pointer;font-size:12px" '
+            + 'onclick="this.closest(\'.card\').remove()">Delete</button></div>'
+            + '<div class="card" id="deletable-card-3"><h3>Deletable Card C</h3>'
+            + '<p>Delete me to see what happens.</p>'
+            + '<button style="margin-top:8px;padding:4px 12px;background:#ff3b30;border:none;color:white;border-radius:6px;cursor:pointer;font-size:12px" '
+            + 'onclick="this.closest(\'.card\').remove()">Delete</button></div>'
+            + '</div></section>';
+          return;
+        }
+
+        html += '<section class="scroll-section" id="section-' + slug + '">'
+          + '<h2>' + section.heading + '</h2><div class="card-grid">';
+        section.cards.forEach(function(card, i) {
+          html += '<div class="card" id="card-' + slug + '-' + i + '">'
+            + '<h3>' + card.title + '</h3><p>' + card.text + '</p></div>';
+        });
+        html += '</div></section>';
+      });
+
+      // Add a nested scrollable container section
+      html += '<section class="scroll-container" id="nested-scroll-section">'
+        + '<h2>Nested Scroll Container</h2>'
+        + '<p style="color:#9aa4b2;font-size:13px;margin-bottom:16px;">'
+        + 'This panel contains a scrollable area. Annotate items inside and scroll \u2014 '
+        + 'markers should follow their elements within this container.</p>'
+        + '<div class="scroll-inner" id="nested-scroll-inner">';
+      var scrollItems = [
+        { title: 'Layer 1: Background', desc: 'Base layer with gradient fill and noise texture.' },
+        { title: 'Layer 2: Grid Overlay', desc: '12-column grid with 24px gutters, snapping enabled.' },
+        { title: 'Layer 3: Hero Section', desc: 'Full-width hero with CTA button and background image.' },
+        { title: 'Layer 4: Navigation', desc: 'Sticky top nav with logo, links, and search bar.' },
+        { title: 'Layer 5: Feature Cards', desc: 'Three-column card layout with hover animations.' },
+        { title: 'Layer 6: Testimonials', desc: 'Carousel slider with customer quotes and avatars.' },
+        { title: 'Layer 7: Pricing Table', desc: 'Comparison table with three tiers and feature checks.' },
+        { title: 'Layer 8: FAQ Accordion', desc: 'Expandable question/answer pairs with smooth transitions.' },
+        { title: 'Layer 9: Contact Form', desc: 'Name, email, and message fields with validation.' },
+        { title: 'Layer 10: Footer', desc: 'Site links, social icons, and copyright notice.' },
+        { title: 'Layer 11: Cookie Banner', desc: 'GDPR-compliant banner with accept/reject buttons.' },
+        { title: 'Layer 12: Chat Widget', desc: 'Floating chat bubble with message thread.' },
+      ];
+      scrollItems.forEach(function(item, i) {
+        html += '<div class="scroll-item" id="scroll-item-' + i + '">'
+          + '<h4>' + item.title + '</h4><p>' + item.desc + '</p></div>';
+      });
+      html += '</div></section>';
+
+      html += '<div style="height:200px;display:flex;align-items:center;justify-content:center;opacity:0.3">'
+        + '\u2191 Scroll up to see annotations track their elements \u2191</div>';
+      app.innerHTML = html;
+    }
+
+    navButtons.forEach(function(button) {
+      button.addEventListener('click', function() { navigate(button.dataset.route); });
+    });
+    window.addEventListener('popstate', render);
+    render();
+    updateStatusBar();
+
+    // Expose for DevTools testing
+    window.annotationTool = annotation;
+    window.appState = appState;
+  </script>
+</body>
+</html>

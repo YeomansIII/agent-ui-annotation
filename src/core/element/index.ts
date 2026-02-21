@@ -28,7 +28,6 @@ import { identifyElement } from './identifier';
 import { generateSelectorPath, generateFullDomPath } from './path-generator';
 import { getAccessibilityInfo, getContainingLandmark, describeLandmark } from './accessibility';
 import { getForensicStyles } from './styles';
-import { isFixedOrSticky } from '../utils/fixed-detection';
 import { getMeaningfulClasses } from '../utils/css-cleaner';
 import { getComponentPathInfo } from './component-path';
 
@@ -119,6 +118,5 @@ export function collectElementInfo(element: Element, includeForensic: boolean = 
     nearbyContext: getNearbyContext(element),
     innerText: getInnerText(element),
     attributes: getElementAttributes(element),
-    isFixed: isFixedOrSticky(element),
   };
 }

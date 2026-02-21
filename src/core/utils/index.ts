@@ -10,10 +10,3 @@ export {
   getFirstMeaningfulClass,
   formatClassSelector,
 } from './css-cleaner';
-export {
-  isFixedOrSticky,
-  getFixedAncestor,
-  getElementPosition,
-  percentToPixels,
-  pixelsToPercent,
-} from './fixed-detection';

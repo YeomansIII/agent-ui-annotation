@@ -37,7 +37,8 @@ describe('onBeforeAnnotationCreate hook', () => {
 
     expect(annotation).not.toBeNull();
     expect(annotation?.comment).toBe('Test comment');
-    expect(annotation?.context).toBeUndefined();
+    // Route is always auto-set in context
+    expect(annotation?.context?.route).toBeDefined();
   });
 
   it('should add context from hook', async () => {
@@ -56,10 +57,9 @@ describe('onBeforeAnnotationCreate hook', () => {
 
     expect(hook).toHaveBeenCalledTimes(1);
     expect(annotation).not.toBeNull();
-    expect(annotation?.context).toEqual({
-      route: '/test-route',
-      userId: 123,
-    });
+    expect(annotation?.context?.userId).toBe(123);
+    // Hook-supplied route '/test-route' is resolved to a full href
+    expect(annotation?.context?.route).toContain('/test-route');
   });
 
   it('should pass correct data to hook', async () => {
@@ -136,7 +136,8 @@ describe('onBeforeAnnotationCreate hook', () => {
     const annotation = await manager.addAnnotation(mockElement, 'Test comment');
 
     expect(hook).toHaveBeenCalledTimes(1);
-    expect(annotation?.context).toEqual({ asyncData: 'loaded' });
+    expect(annotation?.context?.asyncData).toBe('loaded');
+    expect(annotation?.context?.route).toBeDefined();
   });
 
   it('should continue on hook error', async () => {
@@ -176,7 +177,8 @@ describe('onBeforeAnnotationCreate hook', () => {
     expect(hook).toHaveBeenCalledTimes(1);
     expect(annotation).not.toBeNull();
     expect(annotation?.comment).toBe('Test comment');
-    expect(annotation?.context).toBeUndefined();
+    // Route is auto-added even when hook returns void
+    expect(annotation?.context?.route).toBeDefined();
   });
 
   it('should handle hook returning partial result', async () => {
@@ -192,7 +194,8 @@ describe('onBeforeAnnotationCreate hook', () => {
     const annotation = await manager.addAnnotation(mockElement, 'Original comment');
 
     expect(annotation?.comment).toBe('Original comment');
-    expect(annotation?.context).toEqual({ partial: true });
+    expect(annotation?.context?.partial).toBe(true);
+    expect(annotation?.context?.route).toBeDefined();
   });
 
   it('should emit annotation:create event with context', async () => {
@@ -210,11 +213,9 @@ describe('onBeforeAnnotationCreate hook', () => {
     await manager.addAnnotation(mockElement, 'Test comment');
 
     expect(createListener).toHaveBeenCalledTimes(1);
-    expect(createListener).toHaveBeenCalledWith({
-      annotation: expect.objectContaining({
-        context: { test: 'value' },
-      }),
-    });
+    const emittedAnnotation = createListener.mock.calls[0][0].annotation;
+    expect(emittedAnnotation.context.test).toBe('value');
+    expect(emittedAnnotation.context.route).toBeDefined();
   });
 
   it('should not emit event when cancelled', async () => {

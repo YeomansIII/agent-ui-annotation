@@ -168,10 +168,12 @@ export const componentStyles = css`
     margin: 0 var(--as-space-xs);
   }
 
-  /* Annotation count */
-  .annotation-count {
+  /* Annotation count button */
+  .annotation-count-btn {
+    position: relative;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: var(--as-space-xs);
     padding: 0 var(--as-space-sm);
     font-size: var(--as-font-size-sm);
@@ -179,9 +181,149 @@ export const componentStyles = css`
     color: var(--as-text-secondary);
   }
 
-  .annotation-count .count {
+  .annotation-count-btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  .annotation-count-btn .count {
     color: var(--as-text-primary);
     font-weight: 600;
+  }
+
+  /* Annotation summary modal (reuses settings panel styles/animation) */
+  .settings-panel.annotation-list-panel {
+    width: 360px;
+    max-width: 90vw;
+    max-height: min(60vh, 420px);
+    overflow: auto;
+  }
+
+  .settings-panel.annotation-list-panel::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .settings-panel.annotation-list-panel::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .settings-panel.annotation-list-panel::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.3);
+    border-radius: 3px;
+  }
+
+  .settings-panel.annotation-list-panel::-webkit-scrollbar-thumb:hover {
+    background: rgba(128, 128, 128, 0.5);
+  }
+
+  .annotations-route {
+    border: 1px solid var(--as-border-primary);
+    border-radius: var(--as-radius-md);
+    background: var(--as-bg-secondary);
+    margin-bottom: var(--as-space-sm);
+    overflow: hidden;
+  }
+
+  .annotations-route:last-child {
+    margin-bottom: 0;
+  }
+
+  .annotations-route > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--as-space-sm);
+    padding: var(--as-space-sm) var(--as-space-md);
+    cursor: pointer;
+    list-style: none;
+    color: var(--as-text-secondary);
+    font-size: var(--as-font-size-xs);
+  }
+
+  .annotations-route > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .annotations-preview-list {
+    padding: 0 var(--as-space-sm) var(--as-space-sm);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .annotation-preview-item {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 2px var(--as-space-sm);
+    padding: var(--as-space-xs) var(--as-space-sm);
+    border-radius: var(--as-radius-sm);
+    background: var(--as-bg-primary);
+    border: 1px solid var(--as-border-primary);
+    cursor: pointer;
+    transition: background var(--as-transition-fast), border-color var(--as-transition-fast);
+  }
+
+  .annotation-preview-item:hover {
+    background: var(--as-bg-hover);
+    border-color: var(--as-accent);
+  }
+
+  .annotation-preview-marker {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .annotation-preview-target {
+    grid-column: 2;
+    font-size: var(--as-font-size-xs);
+    color: var(--as-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .annotation-preview-comment {
+    grid-column: 2;
+    font-size: var(--as-font-size-xs);
+    color: var(--as-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .summary-route {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--as-space-sm);
+    padding: 4px var(--as-space-sm);
+    border-radius: var(--as-radius-sm);
+    text-decoration: none;
+    color: var(--as-text-secondary);
+    font-size: var(--as-font-size-xs);
+    cursor: pointer;
+    transition: background var(--as-transition-fast), color var(--as-transition-fast);
+  }
+
+  .summary-route:hover {
+    background: var(--as-bg-hover);
+    color: var(--as-accent);
+  }
+
+  .summary-path {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--as-font-mono);
+  }
+
+  .summary-count {
+    flex-shrink: 0;
+    font-weight: 600;
+    color: var(--as-text-primary);
   }
 
   /* Feedback toast */
@@ -227,9 +369,9 @@ export const componentStyles = css`
     pointer-events: none;
   }
 
-  /* Individual marker */
+  /* Reusable marker badge (used by markers + annotation list items) */
+  .marker-badge,
   .marker {
-    position: absolute;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -242,6 +384,11 @@ export const componentStyles = css`
     font-size: var(--as-font-size-xs);
     font-weight: 700;
     box-shadow: var(--as-shadow-md);
+  }
+
+  /* Individual marker */
+  .marker {
+    position: absolute;
     pointer-events: auto;
     cursor: pointer;
     transform: translate(-50%, -50%);
@@ -253,13 +400,18 @@ export const componentStyles = css`
     box-shadow: var(--as-shadow-lg);
   }
 
-  .marker.fixed {
-    position: fixed;
-  }
-
   .marker.pending {
     opacity: 0.7;
     animation: marker-pulse 1s ease-in-out infinite;
+  }
+
+  .marker.dot-only {
+    width: 10px;
+    height: 10px;
+    font-size: 0;
+    border-width: 1.5px;
+    box-shadow: var(--as-shadow-sm);
+    pointer-events: none;
   }
 
   @keyframes marker-pulse {
@@ -350,11 +502,63 @@ export const componentStyles = css`
     text-overflow: ellipsis;
   }
 
+  /* Marker tooltip: show below when near top edge */
+  .marker-tooltip.below {
+    bottom: auto;
+    top: calc(100% + 8px);
+  }
+
+  .marker-tooltip.below::after {
+    top: auto;
+    bottom: 100%;
+    border-top-color: transparent;
+    border-bottom-color: var(--as-bg-primary);
+  }
+
+  /* Marker tooltip: align left when near right edge */
+  .marker-tooltip.align-start {
+    left: -8px;
+    transform: none;
+  }
+
+  .marker-tooltip.align-start::after {
+    left: 20px;
+    transform: none;
+  }
+
+  /* Marker tooltip: align right when near left edge */
+  .marker-tooltip.align-end {
+    left: auto;
+    right: -8px;
+    transform: none;
+  }
+
+  .marker-tooltip.align-end::after {
+    left: auto;
+    right: 20px;
+    transform: none;
+  }
+
+  /* Simpler entrance animation for repositioned tooltips */
+  .marker-tooltip.below,
+  .marker-tooltip.align-start,
+  .marker-tooltip.align-end {
+    animation-name: tooltip-enter-simple;
+  }
+
+  @keyframes tooltip-enter-simple {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
   /* Popup - Popover style (positioned near click point) */
   .popup-popover {
     position: fixed;
     z-index: var(--as-z-popup);
     width: 340px;
+    max-width: calc(100vw - 24px);
+    max-height: calc(100vh - 24px);
+    overflow: auto;
     padding: var(--as-space-lg);
     background: var(--as-bg-primary);
     border: 1px solid var(--as-border-primary);

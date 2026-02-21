@@ -44,7 +44,6 @@ function createMockAnnotation(overrides: Partial<Annotation> = {}): Annotation {
       },
       innerText: 'Save',
       attributes: {},
-      isFixed: false,
     },
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -52,6 +51,8 @@ function createMockAnnotation(overrides: Partial<Annotation> = {}): Annotation {
     isMultiSelect: false,
     clickX: 50,
     clickY: 20,
+    offsetX: 0.5,
+    offsetY: 0.5,
     ...overrides,
   };
 }
@@ -149,4 +150,23 @@ describe('Annotation persistence', () => {
     const loaded = loadAnnotations();
     expect(loaded.size).toBe(0);
   });
+
+  it('should persist offsetX and offsetY through save/load cycle', () => {
+    const annotation = createMockAnnotation({
+      id: 'offset-1' as AnnotationId,
+      offsetX: 0.25,
+      offsetY: 0.75,
+    });
+    const map = new Map<AnnotationId, Annotation>();
+    map.set(annotation.id, annotation);
+
+    saveAnnotations(map);
+    const loaded = loadAnnotations();
+
+    const loadedAnnotation = loaded.get('offset-1' as AnnotationId);
+    expect(loadedAnnotation).toBeDefined();
+    expect(loadedAnnotation?.offsetX).toBe(0.25);
+    expect(loadedAnnotation?.offsetY).toBe(0.75);
+  });
+
 });

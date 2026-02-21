@@ -58,3 +58,11 @@ cd angular
 pnpm install
 pnpm dev
 ```
+
+## SPA (Route + Corner Coverage)
+
+```bash
+cd spa
+pnpm install
+pnpm dev
+```

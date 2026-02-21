@@ -7,6 +7,7 @@ import type { Store } from '../store';
 import type { EventBus } from '../event-bus';
 import type { EventMap } from '../types';
 import { collectElementInfo } from '../element';
+import { setPassthroughMode } from './cursor';
 
 /** Data attributes used by Annotation */
 const DATA_TOOLBAR = 'data-annotation-toolbar';
@@ -104,6 +105,9 @@ export function createEventHandlers(
 ) {
   let isActive = false;
 
+  /**
+   * Handle Escape key for closing popups, canceling selection, or deactivating
+   */
   const handleEscape = (state: AppState, event: KeyboardEvent): boolean => {
     if (event.key !== 'Escape') return false;
 
@@ -125,7 +129,7 @@ export function createEventHandlers(
       return true;
     }
 
-    return true;
+    return false;
   };
 
   /**
@@ -135,9 +139,17 @@ export function createEventHandlers(
     const state = store.getState();
 
     if (state.mode === 'disabled') return;
+    if (state.passthroughActive) return;
 
     // Check composedPath to properly detect clicks inside shadow DOM
     if (isAnnotationEvent(event)) return;
+
+    // Block ALL clicks from reaching the page when blockInteractions is ON.
+    // This runs in capture phase, preventing the event from reaching page elements.
+    if (state.settings.blockInteractions) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
 
     // Don't process element selection when settings panel is open
     if (state.settingsPanelVisible) return;
@@ -145,25 +157,12 @@ export function createEventHandlers(
     const target = getTargetElement(event);
     if (!target) return;
 
-    // Prevent default only when active and targeting interactive elements
-    // Also check ancestors to handle clicks on children of interactive elements (e.g., icon inside a link)
-    if (state.settings.blockInteractions) {
-      const interactiveSelector = 'a, button, input, select, textarea, [role="button"], [onclick]';
-      const isInteractive = target.matches(interactiveSelector) || target.closest(interactiveSelector);
-      if (isInteractive) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-    }
-
     const includeForensic = state.settings.outputLevel === 'forensic';
     const elementInfo = collectElementInfo(target, includeForensic);
 
-    // Store click position:
-    // - For fixed elements: use viewport coordinates directly
-    // - For non-fixed elements: convert to document coordinates (add scroll offset)
+    // Store click position as document-absolute coordinates
     const clickX = event.clientX;
-    const clickY = elementInfo.isFixed ? event.clientY : event.clientY + window.scrollY;
+    const clickY = event.clientY + window.scrollY;
 
     eventBus.emit('element:click', {
       element: target,
@@ -179,10 +178,20 @@ export function createEventHandlers(
   const handleMouseDown = (event: MouseEvent) => {
     const state = store.getState();
 
-    if (state.mode !== 'multi-select') return;
+    if (state.mode === 'disabled') return;
+    if (state.passthroughActive) return;
 
     const target = event.target as Element;
     if (isAnnotationElement(target)) return;
+
+    // Block mousedown from reaching the page when blockInteractions is ON
+    if (state.settings.blockInteractions) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    // Only start multi-select drag in multi-select mode
+    if (state.mode !== 'multi-select') return;
 
     const position: Position = {
       x: event.clientX,
@@ -197,6 +206,7 @@ export function createEventHandlers(
    */
   const handleMouseMove = (event: MouseEvent) => {
     const state = store.getState();
+    if (state.passthroughActive) return;
 
     if (!state.isSelecting && state.selectionRect === null) return;
 
@@ -215,8 +225,15 @@ export function createEventHandlers(
   /**
    * Handle mouse up to complete drag selection
    */
-  const handleMouseUp = (_event: MouseEvent) => {
+  const handleMouseUp = (event: MouseEvent) => {
     const state = store.getState();
+    if (state.passthroughActive) return;
+
+    // Block from reaching the page when blockInteractions is ON
+    if (state.mode !== 'disabled' && state.settings.blockInteractions && !isAnnotationEvent(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
 
     if (!state.isSelecting) return;
 
@@ -230,33 +247,107 @@ export function createEventHandlers(
 
   /**
    * Handle scroll events
+   * NOTE: The annotation element also tracks scrollY via its own always-on listener
+   * so that dot-mode markers move correctly even when the tool is deactivated.
+   * This handler is the primary one when the tool is active.
    */
   const handleScroll = () => {
     store.setState({ scrollY: window.scrollY });
   };
 
   /**
-   * Handle keyboard events
+   * Handle keyboard events (runs in capture phase to block before page handlers)
    */
   const handleKeyDown = (event: KeyboardEvent) => {
     const state = store.getState();
 
+    // Check if event originated from annotation UI
     if (isAnnotationEvent(event)) {
-      handleEscape(state, event);
-      // For all other keys when typing in annotation UI, prevent propagation
-      event.stopPropagation();
-      event.stopImmediatePropagation();
+      // Still allow Escape key to work for closing popups
+      if (event.key === 'Escape') {
+        handleEscape(state, event);
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        return;
+      }
+
+      // Allow Enter/Shift+Enter from text inputs so popup textarea can handle:
+      // - Enter submit
+      // - Shift+Enter newline
+      const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+      const isTextInput = path.some((node) => {
+        if (node instanceof HTMLTextAreaElement) return true;
+        if (node instanceof HTMLInputElement) {
+          return !['button', 'checkbox', 'radio', 'submit', 'reset'].includes(node.type);
+        }
+        return false;
+      });
+      const shouldAllowTextareaEnter = isTextInput && event.key === 'Enter';
+
+      // Only block annotation-origin keys while the annotation popup is open.
+      // This keeps page shortcuts (e.g. Space/G) working when only the toolbar is open.
+      if (state.popupVisible && !shouldAllowTextareaEnter) {
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+      }
       return;
     }
 
-    // Escape to cancel current operation (when not in annotation UI)
+    // Event passthrough: temporarily give control back to the page for interactions.
+    // Only activate passthrough when there's nothing left to dismiss (no popup, no selection).
+    if (state.mode !== 'disabled' && event.key === 'Escape') {
+      if (!state.passthroughActive && !state.popupVisible && !state.isSelecting) {
+        store.setState({ passthroughActive: true });
+        setPassthroughMode(true);
+        event.preventDefault();
+        return;
+      }
+    }
+
+    // Handle Escape for closing popups / canceling selection / deactivating
     handleEscape(state, event);
+
+    // Only block page keyboard shortcuts while the annotation popup is open.
+    if (state.mode !== 'disabled' && state.settings.blockInteractions && state.popupVisible) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
   };
 
   const handleKeyUp = (event: KeyboardEvent) => {
+    // Release passthrough
+    const state = store.getState();
+    if (state.passthroughActive && (event.key === 'Escape')) {
+      store.setState({ passthroughActive: false });
+      setPassthroughMode(false);
+    }
+
+    // Prevent annotation UI key events from propagating only while popup is open
     if (isAnnotationEvent(event)) {
+      if (state.popupVisible) {
+        // Keep annotation UI key events from reaching page-level shortcuts.
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+      }
+      return;
+    }
+
+    if (state.mode !== 'disabled' && state.settings.blockInteractions && state.popupVisible) {
+      event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
+    }
+  };
+
+  /**
+   * Clean up passthrough when window loses focus (e.g. Cmd+Tab)
+   */
+  const handleWindowBlur = () => {
+    const state = store.getState();
+    if (state.passthroughActive) {
+      store.setState({ passthroughActive: false });
+      setPassthroughMode(false);
     }
   };
 
@@ -271,8 +362,9 @@ export function createEventHandlers(
     document.addEventListener('mousemove', handleMouseMove, true);
     document.addEventListener('mouseup', handleMouseUp, true);
     document.addEventListener('scroll', handleScroll, { passive: true });
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('keyup', handleKeyUp);
+    document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('keyup', handleKeyUp, true);
+    window.addEventListener('blur', handleWindowBlur);
 
     isActive = true;
   };
@@ -288,8 +380,15 @@ export function createEventHandlers(
     document.removeEventListener('mousemove', handleMouseMove, true);
     document.removeEventListener('mouseup', handleMouseUp, true);
     document.removeEventListener('scroll', handleScroll);
-    document.removeEventListener('keydown', handleKeyDown);
-    document.removeEventListener('keyup', handleKeyUp);
+    document.removeEventListener('keydown', handleKeyDown, true);
+    document.removeEventListener('keyup', handleKeyUp, true);
+    window.removeEventListener('blur', handleWindowBlur);
+
+    // Clean up passthrough state if it was active
+    if (store.getState().passthroughActive) {
+      store.setState({ passthroughActive: false });
+      setPassthroughMode(false);
+    }
 
     isActive = false;
   };

@@ -34,3 +34,7 @@ export {
   setDisabledState,
   cleanupCursorStyles,
 } from './cursor';
+
+export {
+  refindElement,
+} from './element-refinder';

@@ -25,21 +25,35 @@ interface SerializedAnnotation {
   isMultiSelect: boolean;
   clickX: number;
   clickY: number;
+  /** Offset percentage (0-1) from element's left edge */
+  offsetX: number;
+  /** Offset percentage (0-1) from element's top edge */
+  offsetY: number;
   context?: Record<string, unknown>;
 }
 
 /**
- * Get storage key for current page
+ * Get storage key for current origin (SPA-safe)
  */
 function getAnnotationStorageKey(): string {
-  return ANNOTATION_KEY_PREFIX + window.location.pathname;
+  return ANNOTATION_KEY_PREFIX + window.location.origin;
+}
+
+function readStoredAnnotations(key: string): SerializedAnnotation[] {
+  const stored = localStorage.getItem(key);
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored) as SerializedAnnotation[];
+  } catch {
+    return [];
+  }
 }
 
 /**
  * Serialize an annotation for storage
  */
 function serializeAnnotation(annotation: Annotation): SerializedAnnotation {
-  return {
+  const serialized: SerializedAnnotation = {
     id: annotation.id,
     number: annotation.number,
     comment: annotation.comment,
@@ -50,18 +64,38 @@ function serializeAnnotation(annotation: Annotation): SerializedAnnotation {
     isMultiSelect: annotation.isMultiSelect,
     clickX: annotation.clickX,
     clickY: annotation.clickY,
-    context: annotation.context,
+    offsetX: annotation.offsetX ?? 0.5,
+    offsetY: annotation.offsetY ?? 0.5,
   };
+
+  if (annotation.context !== undefined) serialized.context = annotation.context;
+
+  return serialized;
 }
 
 /**
  * Deserialize an annotation from storage
  */
 function deserializeAnnotation(data: SerializedAnnotation): Annotation {
-  return {
-    ...data,
-    element: null, // DOM reference can't be restored
+  const annotation: Annotation = {
+    id: data.id,
+    number: data.number,
+    comment: data.comment,
+    elementInfo: data.elementInfo,
+    element: null, // DOM reference will be restored by element re-finding
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    selectedText: data.selectedText,
+    isMultiSelect: data.isMultiSelect,
+    clickX: data.clickX,
+    clickY: data.clickY,
+    offsetX: data.offsetX,
+    offsetY: data.offsetY,
   };
+
+  if (data.context !== undefined) annotation.context = data.context;
+
+  return annotation;
 }
 
 /**
@@ -93,16 +127,9 @@ export function saveAnnotations(annotations: Map<AnnotationId, Annotation>): boo
 export function loadAnnotations(): Map<AnnotationId, Annotation> {
   try {
     const key = getAnnotationStorageKey();
-    const stored = localStorage.getItem(key);
-
-    if (!stored) {
-      return new Map();
-    }
-
-    const parsed = JSON.parse(stored) as SerializedAnnotation[];
+    const parsed = readStoredAnnotations(key);
     const filtered = filterExpired(parsed);
 
-    // If we filtered out expired annotations, save the cleaned list
     if (filtered.length !== parsed.length) {
       localStorage.setItem(key, JSON.stringify(filtered));
     }

@@ -10,8 +10,10 @@ export interface TranslationStrings {
     unfreeze: string;
     showMarkers: string;
     hideMarkers: string;
+    dotsMode: string;
     copyToClipboard: string;
     clearAll: string;
+    annotations: string;
     toggleTheme: string;
     settings: string;
     close: string;
@@ -77,7 +79,6 @@ export interface TranslationStrings {
     positionDimensions: string;
     boundingBox: string;
     size: string;
-    fixedPositioning: string;
     accessibility: string;
     role: string;
     interactive: string;
@@ -101,8 +102,6 @@ export interface TranslationStrings {
     timestamp: string;
     userAgent: string;
     totalAnnotations: string;
-    positioning: string;
-    fixedSticky: string;
     yes: string;
     no: string;
     none: string;

@@ -9,6 +9,7 @@ import type { AppState, Settings, OutputLevel, ThemeMode, BeforeAnnotationCreate
 import { createAnnotationCore, type AnnotationCore } from '../core/controller';
 import { resolveTheme } from '../themes/variables';
 import { componentStyles } from './styles';
+import { calculatePopupPosition } from './popup-position';
 import {
   renderCollapsedToolbar,
   renderExpandedToolbar,
@@ -21,42 +22,9 @@ import {
 } from './templates';
 import { normalizeRect } from '../core/dom/multi-select';
 import { t } from '../core/i18n';
-
-/**
- * Calculate popup position near click point
- */
-function calculatePopupPosition(clickX: number, clickY: number): { left: string; top: string } {
-  const popupWidth = 340;
-  const popupHeight = 220;
-  const margin = 12;
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-
-  let left = clickX + margin;
-  let top = clickY - popupHeight / 2;
-
-  if (left + popupWidth > viewportWidth - margin) {
-    left = clickX - popupWidth - margin;
-  }
-
-  if (left < margin) {
-    left = Math.max(margin, clickX - popupWidth / 2);
-  }
-
-  left = Math.max(margin, Math.min(left, viewportWidth - popupWidth - margin));
-
-  if (top < margin) {
-    top = margin;
-  }
-  if (top + popupHeight > viewportHeight - margin) {
-    top = viewportHeight - popupHeight - margin;
-  }
-
-  return {
-    left: `${left}px`,
-    top: `${top}px`,
-  };
-}
+import { getCurrentRoute, isAnnotationVisibleOnRoute, getAnnotationRoute } from '../core/annotations/route';
+import { createDevtoolsApi, attachDevtoolsApi, detachDevtoolsApi, type DevtoolsApi } from './devtools-api';
+import { refindElement } from '../core/dom/element-refinder';
 
 /**
  * Annotation Web Component
@@ -118,19 +86,31 @@ export class AnnotationElement extends LitElement {
   // Animation tracking
   private toolbarShownOnce: boolean = false;
   private settingsPanelAnimated: boolean = false;
+  private annotationsPanelAnimated: boolean = false;
   private animatedMarkerTooltipId: string | null = null;
   private lastRenderedSettings: string | null = null;
+  private showCountSummary: boolean = false;
 
   // Bound handlers for cleanup
   private boundHandleResize = () => this.handleWindowResize();
   private boundHandleMouseMove = (e: MouseEvent) => this.handleMouseMove(e);
   private boundHandleDocumentClick = (e: Event) => this.handleDocumentClick(e);
+  private boundHandleScroll = () => this.handleScroll();
+  private scrollRafPending = false;
 
   // Textarea ref for autofocus
   private textareaRef: Ref<HTMLTextAreaElement> = createRef();
+  private popupPosition: { left: number; top: number } | null = null;
+  private currentRoute: string = getCurrentRoute();
+  private routeListenerCleanup: (() => void) | null = null;
+  private devtoolsApi: DevtoolsApi | null = null;
 
   connectedCallback() {
     super.connectedCallback();
+
+    // Expose instance for devtools automation
+    this.devtoolsApi = createDevtoolsApi(this);
+    attachDevtoolsApi(this, this.devtoolsApi);
 
     // Initialize core
     this.core = createAnnotationCore({
@@ -143,6 +123,8 @@ export class AnnotationElement extends LitElement {
       onAnnotationsClear: (annotations) => this.dispatchAnnotationEvent('annotation:clear', { annotations }),
       onCopy: (content, level) => this.dispatchAnnotationEvent('annotation:copy', { content, level }),
     });
+
+    this.routeListenerCleanup = this.bindRouteListeners();
 
     // Subscribe to state changes
     this.unsubscribe = this.core.subscribe((state) => {
@@ -161,23 +143,39 @@ export class AnnotationElement extends LitElement {
     document.addEventListener('mousemove', this.boundHandleMouseMove);
     document.addEventListener('click', this.boundHandleDocumentClick);
     window.addEventListener('resize', this.boundHandleResize);
+    document.addEventListener('scroll', this.boundHandleScroll, { capture: true, passive: true });
 
     // Initial state
     this.appState = this.core.store.getState();
     this.updateThemeAttribute();
+
+    // Re-find DOM elements for persisted annotations once the DOM is settled.
+    // Use rAF to allow frameworks (React, Vue, etc.) to finish hydration first.
+    requestAnimationFrame(() => this.refindAnnotationElements());
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+
+    detachDevtoolsApi(this, this.devtoolsApi);
+    this.devtoolsApi = null;
 
     if (this.unsubscribe) {
       this.unsubscribe();
       this.unsubscribe = null;
     }
 
+    if (this.routeListenerCleanup) {
+      this.routeListenerCleanup();
+      this.routeListenerCleanup = null;
+    }
+
     window.removeEventListener('resize', this.boundHandleResize);
+    document.removeEventListener('scroll', this.boundHandleScroll, true);
     document.removeEventListener('mousemove', this.boundHandleMouseMove);
     document.removeEventListener('click', this.boundHandleDocumentClick);
+
+    this.teardownPopupObserver();
 
     if (this.core) {
       this.core.destroy();
@@ -210,6 +208,8 @@ export class AnnotationElement extends LitElement {
     if (this.appState?.popupVisible && this.textareaRef.value) {
       this.textareaRef.value.focus();
     }
+
+    this.syncPopupPosition();
   }
 
   /**
@@ -348,14 +348,11 @@ export class AnnotationElement extends LitElement {
       const rect = annotation.element.getBoundingClientRect();
 
       // Use stored offset percentage to maintain relative position within element
-      // If offset isn't stored (legacy annotations), fall back to center (0.5)
-      const offsetXPercent = annotation.offsetX ?? 0.5;
-      const offsetYPercent = annotation.offsetY ?? 0.5;
+      const offsetXPercent = annotation.offsetX;
+      const offsetYPercent = annotation.offsetY;
 
       const newClickX = rect.left + (rect.width * offsetXPercent);
-      const newClickY = annotation.elementInfo.isFixed
-        ? rect.top + (rect.height * offsetYPercent)
-        : rect.top + (rect.height * offsetYPercent) + window.scrollY;
+      const newClickY = rect.top + (rect.height * offsetYPercent) + window.scrollY;
 
       // Always create new annotation object to ensure state change is detected
       newAnnotations.set(id, { ...annotation, clickX: newClickX, clickY: newClickY });
@@ -368,18 +365,152 @@ export class AnnotationElement extends LitElement {
     });
   }
 
+  /**
+   * Attempt to re-find DOM elements for persisted annotations that
+   * lost their element reference (e.g., after page reload).
+   * Uses the stored selectorPath, ID, classes, and text content.
+   * Retries up to MAX_RETRIES times for dynamically loaded content.
+   */
+  private refindAnnotationElements(retryCount: number = 0) {
+    if (!this.core) return;
+
+    const state = this.core.store.getState();
+    const updatedAnnotations = new Map(state.annotations);
+    let changed = false;
+    let allFound = true;
+
+    for (const [id, annotation] of updatedAnnotations) {
+      // Only try re-finding if the element is missing or disconnected
+      if (annotation.element && annotation.element.isConnected) continue;
+
+      const element = refindElement(annotation.elementInfo);
+      if (element) {
+        updatedAnnotations.set(id, { ...annotation, element });
+        changed = true;
+      } else {
+        allFound = false;
+      }
+    }
+
+    if (changed) {
+      this.core.store.setState({ annotations: updatedAnnotations });
+    }
+
+    // Retry for dynamically loaded content (e.g., async lists, lazy components)
+    const MAX_RETRIES = 3;
+    if (!allFound && retryCount < MAX_RETRIES) {
+      setTimeout(() => this.refindAnnotationElements(retryCount + 1), 100 * (retryCount + 1));
+    }
+  }
+
   private handleDocumentClick(event: Event) {
     if (!this.core) return;
 
     const state = this.core.store.getState();
-    if (!state.settingsPanelVisible) return;
+    if (!state.settingsPanelVisible && !this.showCountSummary) return;
 
     const path = event.composedPath();
     const clickedInside = path.some((el) => el === this);
 
     if (!clickedInside) {
-      this.core.store.setState({ settingsPanelVisible: false });
+      this.showCountSummary = false;
+      if (state.settingsPanelVisible) {
+        this.core.store.setState({ settingsPanelVisible: false });
+      } else {
+        this.requestUpdate();
+      }
     }
+  }
+
+  /**
+   * Keep markers tracking their elements on ANY scroll event.
+   * Uses capture-phase listener on document to catch nested scroll
+   * containers (not just the main page scroll).
+   * This listener runs at all times (not just when activated) so that
+   * dots-mode markers also move correctly when the toolbar is closed.
+   */
+  private handleScroll() {
+    if (!this.core) return;
+    // Always update the main scrollY state
+    this.core.store.setState({ scrollY: window.scrollY });
+    // Batch re-renders via requestAnimationFrame to avoid excessive updates
+    // on pages with frequent scroll activity (e.g. nested scroll containers).
+    if (!this.scrollRafPending) {
+      this.scrollRafPending = true;
+      requestAnimationFrame(() => {
+        this.scrollRafPending = false;
+        this.requestUpdate();
+      });
+    }
+  }
+
+  private bindRouteListeners(): () => void {
+    const routeEventName = 'agent-ui-annotation:route-change';
+    const handleRouteChange = () => {
+      const nextRoute = getCurrentRoute();
+      if (nextRoute !== this.currentRoute) {
+        this.currentRoute = nextRoute;
+        this.requestUpdate();
+        // Re-find elements for annotations that may now be on the visible route
+        requestAnimationFrame(() => this.refindAnnotationElements());
+      }
+    };
+
+    const w = window as any;
+    if (!w.__agentUiAnnotationHistoryPatched) {
+      const dispatch = () => window.dispatchEvent(new Event(routeEventName));
+
+      // Store originals so they can be restored on disconnect
+      w.__agentUiAnnotationOriginalPushState = history.pushState;
+      w.__agentUiAnnotationOriginalReplaceState = history.replaceState;
+
+      const wrap = <T extends (...args: any[]) => any>(fn: T): T => {
+        return function (this: History, ...args: Parameters<T>): ReturnType<T> {
+          const result = fn.apply(this, args);
+          dispatch();
+          return result;
+        } as T;
+      };
+
+      history.pushState = wrap(history.pushState.bind(history));
+      history.replaceState = wrap(history.replaceState.bind(history));
+      w.__agentUiAnnotationHistoryPatched = true;
+      w.__agentUiAnnotationHistoryPatchRefCount = 1;
+    } else {
+      // Track how many instances are using the patch
+      w.__agentUiAnnotationHistoryPatchRefCount = (w.__agentUiAnnotationHistoryPatchRefCount || 0) + 1;
+    }
+
+    window.addEventListener('popstate', handleRouteChange);
+    window.addEventListener('hashchange', handleRouteChange);
+    window.addEventListener(routeEventName, handleRouteChange as EventListener);
+
+    // Set initial route
+    this.currentRoute = getCurrentRoute();
+
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange);
+      window.removeEventListener('hashchange', handleRouteChange);
+      window.removeEventListener(routeEventName, handleRouteChange as EventListener);
+
+      // Restore original history methods when last instance disconnects
+      const w2 = window as any;
+      if (w2.__agentUiAnnotationHistoryPatched) {
+        w2.__agentUiAnnotationHistoryPatchRefCount = (w2.__agentUiAnnotationHistoryPatchRefCount || 1) - 1;
+        if (w2.__agentUiAnnotationHistoryPatchRefCount <= 0) {
+          if (w2.__agentUiAnnotationOriginalPushState) {
+            history.pushState = w2.__agentUiAnnotationOriginalPushState;
+          }
+          if (w2.__agentUiAnnotationOriginalReplaceState) {
+            history.replaceState = w2.__agentUiAnnotationOriginalReplaceState;
+          }
+          delete w2.__agentUiAnnotationHistoryPatched;
+          delete w2.__agentUiAnnotationOriginalPushState;
+          delete w2.__agentUiAnnotationOriginalReplaceState;
+          delete w2.__agentUiAnnotationHistoryPatchRefCount;
+        }
+      }
+    };
   }
 
   private handleMouseMove(event: MouseEvent) {
@@ -387,72 +518,168 @@ export class AnnotationElement extends LitElement {
     this.mouseY = event.clientY;
   }
 
-  private handleClick(event: Event) {
-    const target = event.target as HTMLElement;
-    const action = target.closest('[data-action]')?.getAttribute('data-action');
-    const annotationId = target.closest('[data-annotation-id]')?.getAttribute('data-annotation-id');
+  private closeAnnotationsPanel(requestUpdate: boolean = true) {
+    if (!this.showCountSummary) return;
+    this.showCountSummary = false;
+    if (requestUpdate) {
+      this.requestUpdate();
+    }
+  }
 
+  private toggleMarkerVisibility() {
     if (!this.core) return;
+
+    const state = this.core.store.getState();
+    const next = state.markerVisibility === 'full'
+      ? 'dots'
+      : state.markerVisibility === 'dots'
+        ? 'hidden'
+        : 'full';
+    this.core.store.setState({ markerVisibility: next });
+  }
+
+  private toggleTheme() {
+    if (!this.core) return;
+
+    const currentTheme = this.core.getSettings().theme;
+    const resolved = resolveTheme(currentTheme);
+    const newTheme = resolved === 'dark' ? 'light' : 'dark';
+    this.core.updateSettings({ theme: newTheme });
+    this.updateThemeAttribute();
+  }
+
+  private toggleSettingsPanel() {
+    if (!this.core) return;
+
+    const currentState = this.core.store.getState();
+    this.closeAnnotationsPanel(false);
+    this.core.store.setState({ settingsPanelVisible: !currentState.settingsPanelVisible });
+  }
+
+  private toggleAnnotationsPanel() {
+    if (!this.core) return;
+
+    this.showCountSummary = !this.showCountSummary;
+    if (this.showCountSummary) {
+      this.core.store.setState({ settingsPanelVisible: false });
+    }
+    this.requestUpdate();
+  }
+
+  private navigateToRoute(target: HTMLElement, event: Event) {
+    event.preventDefault();
+    const link = target.closest('[data-route-href]') as HTMLElement | null;
+    const href = link?.getAttribute('data-route-href');
+    if (!href) return;
+
+    try {
+      const url = new URL(href);
+      history.pushState({}, '', url.pathname + url.search + url.hash);
+    } catch {
+      history.pushState({}, '', href);
+    }
+    window.dispatchEvent(new Event('agent-ui-annotation:route-change'));
+    this.closeAnnotationsPanel(false);
+  }
+
+  private openAnnotationPopup(annotationId: string) {
+    if (!this.core) return;
+
+    // Scroll to the annotation element if possible
+    const annotation = this.core.store.getState().annotations.get(annotationId);
+    if (annotation && annotation.element && annotation.element.isConnected) {
+      annotation.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    // Show popup in the center of the screen since we are scrolling to it
+    this.core.showPopup(annotationId, {
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+    });
+  }
+
+  private handleAction(action: string, target: HTMLElement, event: Event) {
+    if (!this.core) return;
+
+    // Close the annotations panel only when the user explicitly interacts with
+    // a toolbar-level action (not popup actions, which overlay the panel).
+    const isToolbarAction = action === 'toggle' || action === 'close' || action === 'freeze'
+      || action === 'toggle-markers' || action === 'copy' || action === 'clear'
+      || action === 'theme' || action === 'settings' || action === 'navigate-route';
+    if (isToolbarAction) {
+      this.closeAnnotationsPanel();
+    }
 
     switch (action) {
       case 'toggle':
         this.core.toggle();
-        break;
+        return;
 
       case 'close':
         this.core.deactivate();
-        break;
+        return;
 
       case 'freeze':
         this.core.freeze.toggle();
-        break;
+        return;
 
-      case 'toggle-markers': {
-        const state = this.core.store.getState();
-        this.core.store.setState({ markersVisible: !state.markersVisible });
-        break;
-      }
+      case 'toggle-markers':
+        this.toggleMarkerVisibility();
+        return;
 
       case 'copy':
         this.core.copyOutput();
-        break;
+        return;
 
       case 'clear':
         this.core.annotations.clearAllAnnotations();
-        break;
+        return;
 
-      case 'theme': {
-        const currentTheme = this.core.getSettings().theme;
-        const resolved = resolveTheme(currentTheme);
-        const newTheme = resolved === 'dark' ? 'light' : 'dark';
-        this.core.updateSettings({ theme: newTheme });
-        this.updateThemeAttribute();
-        break;
-      }
+      case 'theme':
+        this.toggleTheme();
+        return;
 
-      case 'settings': {
-        const currentState = this.core.store.getState();
-        this.core.store.setState({ settingsPanelVisible: !currentState.settingsPanelVisible });
-        break;
-      }
+      case 'settings':
+        this.toggleSettingsPanel();
+        return;
+
+      case 'annotations':
+        this.toggleAnnotationsPanel();
+        return;
+
+      case 'navigate-route':
+        this.navigateToRoute(target, event);
+        return;
 
       case 'popup-close':
       case 'popup-cancel':
         this.core.hidePopup();
-        break;
+        return;
 
       case 'popup-submit':
         this.handlePopupSubmit();
-        break;
+        return;
 
       case 'popup-delete':
         this.handlePopupDelete();
-        break;
+        return;
+    }
+  }
+
+  private handleClick(event: Event) {
+    if (!this.core) return;
+
+    const target = event.target as HTMLElement;
+    const action = target.closest('[data-action]')?.getAttribute('data-action');
+    const annotationId = target.closest('[data-annotation-id]')?.getAttribute('data-annotation-id');
+
+    if (action) {
+      this.handleAction(action, target, event);
     }
 
     // Handle marker click
     if (annotationId && !action) {
-      this.core.showPopup(annotationId);
+      this.openAnnotationPopup(annotationId);
     }
 
     // Handle settings panel changes
@@ -497,22 +724,35 @@ export class AnnotationElement extends LitElement {
 
   private handleMouseOver(event: Event) {
     const target = event.target as HTMLElement;
-    const marker = target.closest('[data-annotation-id]');
 
+    // Marker hover
+    const marker = target.closest('[data-annotation-id]');
     if (marker) {
-      this.hoveredMarkerId = marker.getAttribute('data-annotation-id');
-      this.requestUpdate();
+      const id = marker.getAttribute('data-annotation-id');
+      if (id !== this.hoveredMarkerId) {
+        this.hoveredMarkerId = id;
+        this.requestUpdate();
+      }
+      return;
     }
+
+    // annotation count panel is click-only
   }
 
   private handleMouseOut(event: Event) {
     const target = event.target as HTMLElement;
-    const marker = target.closest('[data-annotation-id]');
+    const relatedTarget = (event as MouseEvent).relatedTarget as HTMLElement | null;
 
-    if (marker) {
-      this.hoveredMarkerId = null;
-      this.requestUpdate();
+    // Marker hover
+    if (target.closest('[data-annotation-id]')) {
+      if (!relatedTarget?.closest(`[data-annotation-id="${this.hoveredMarkerId}"]`)) {
+        this.hoveredMarkerId = null;
+        this.requestUpdate();
+      }
+      return;
     }
+
+    // annotation count panel is click-only
   }
 
   private handlePopupKeyDown(event: KeyboardEvent) {
@@ -554,9 +794,8 @@ export class AnnotationElement extends LitElement {
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
 
-        const isFixed = elementInfo.isFixed;
         const clickX = centerX;
-        const clickY = isFixed ? centerY : centerY + window.scrollY;
+        const clickY = centerY + window.scrollY;
 
         // For multi-select, marker is centered so offset is 0.5 (50%)
         const offsetX = 0.5;
@@ -573,9 +812,8 @@ export class AnnotationElement extends LitElement {
         });
       }
     } else if (state.hoveredElement && state.popupElementInfo) {
-      const isFixed = state.popupElementInfo.isFixed;
       const clickX = state.popupClickX;
-      const clickY = isFixed ? state.popupClickY : state.popupClickY + window.scrollY;
+      const clickY = state.popupClickY + window.scrollY;
 
       // Calculate offset as percentage (0-1) from element's top-left corner
       const rect = state.hoveredElement.getBoundingClientRect();
@@ -615,6 +853,130 @@ export class AnnotationElement extends LitElement {
   }
 
   /**
+   * Generate route-grouped annotation count summary HTML
+   */
+  private generateCountSummary(annotations: import('../core/types').Annotation[], skipAnimation: boolean = false): string {
+    if (annotations.length === 0) return '';
+
+    const routeGroups = new Map<string, import('../core/types').Annotation[]>();
+    for (const annotation of annotations) {
+      const route = getAnnotationRoute(annotation) || this.currentRoute;
+      const list = routeGroups.get(route) || [];
+      list.push(annotation);
+      routeGroups.set(route, list);
+    }
+
+    let html = `<div class="settings-panel annotation-list-panel${skipAnimation ? ' no-animate' : ''}" data-annotation-list-panel><div class="settings-title">${this.escapeHtmlStr(t('toolbar.annotations'))}</div>`;
+
+    if (routeGroups.size === 1) {
+      const [, singleRouteAnnotations] = Array.from(routeGroups.entries())[0];
+      html += '<div class="annotations-preview-list">';
+      for (const annotation of singleRouteAnnotations.sort((a, b) => a.number - b.number)) {
+        const commentPreview = annotation.comment.trim() || t('marker.noComment');
+        html += `<div class="annotation-preview-item" data-annotation-id="${annotation.id}">`;
+        html += `<span class="annotation-preview-marker marker-badge">${annotation.number}</span>`;
+        html += `<span class="annotation-preview-target">${this.escapeHtmlStr(annotation.elementInfo.humanReadable)}</span>`;
+        html += `<span class="annotation-preview-comment">${this.escapeHtmlStr(commentPreview)}</span>`;
+        html += '</div>';
+      }
+      html += '</div>';
+      html += '</div>';
+      return html;
+    }
+
+    for (const [route, routeAnnotations] of routeGroups) {
+      let displayPath: string;
+      try {
+        displayPath = new URL(route).pathname;
+      } catch {
+        displayPath = route;
+      }
+
+      html += '<details class="annotations-route" open>';
+      html += '<summary>';
+      html += `<span class="summary-path">${this.escapeHtmlStr(displayPath)}</span>`;
+      html += `<span class="summary-count">${routeAnnotations.length}</span>`;
+      html += '</summary>';
+      html += '<div class="annotations-preview-list">';
+
+      for (const annotation of routeAnnotations.sort((a, b) => a.number - b.number)) {
+        const commentPreview = annotation.comment.trim() || t('marker.noComment');
+        html += `<div class="annotation-preview-item" data-annotation-id="${annotation.id}">`;
+        html += `<span class="annotation-preview-marker marker-badge">${annotation.number}</span>`;
+        html += `<span class="annotation-preview-target">${this.escapeHtmlStr(annotation.elementInfo.humanReadable)}</span>`;
+        html += `<span class="annotation-preview-comment">${this.escapeHtmlStr(commentPreview)}</span>`;
+        html += '</div>';
+      }
+
+      html += '</div></details>';
+    }
+    html += '</div>';
+
+    return html;
+  }
+
+  private escapeHtmlStr(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  private buildToolbarAndPanelHtml(
+    state: AppState,
+    settings: Settings,
+    annotations: import('../core/types').Annotation[],
+    totalAnnotationCount: number,
+    resolvedTheme: string
+  ): { toolbarHtml: string; annotationsPanelHtml: string } {
+    if (!state.toolbarExpanded) {
+      this.toolbarShownOnce = false;
+      this.settingsPanelAnimated = false;
+      this.annotationsPanelAnimated = false;
+      return {
+        toolbarHtml: renderCollapsedToolbar(totalAnnotationCount),
+        annotationsPanelHtml: '',
+      };
+    }
+
+    const showEntranceAnimation = !this.toolbarShownOnce;
+    if (showEntranceAnimation) {
+      this.toolbarShownOnce = true;
+    }
+
+    let settingsPanelHtml = '';
+    if (state.settingsPanelVisible) {
+      const skipSettingsAnimation = this.settingsPanelAnimated;
+      settingsPanelHtml = renderSettingsPanel({ settings, skipAnimation: skipSettingsAnimation });
+      this.settingsPanelAnimated = true;
+    } else {
+      this.settingsPanelAnimated = false;
+    }
+
+    let annotationsPanelHtml = '';
+    if (this.showCountSummary && totalAnnotationCount > 0) {
+      const skipAnnotationsAnimation = this.annotationsPanelAnimated;
+      annotationsPanelHtml = this.generateCountSummary(annotations, skipAnnotationsAnimation);
+      this.annotationsPanelAnimated = true;
+    } else {
+      this.annotationsPanelAnimated = false;
+    }
+
+    const toolbarHtml = renderExpandedToolbar({
+      annotationCount: totalAnnotationCount,
+      isFrozen: state.isFrozen,
+      markerVisibility: state.markerVisibility,
+      isDarkMode: resolvedTheme === 'dark',
+      showCopiedFeedback: state.showCopiedFeedback,
+      showClearedFeedback: state.showClearedFeedback,
+      showEntranceAnimation,
+      settingsPanelHtml,
+      annotationsPanelHtml,
+    });
+
+    return { toolbarHtml, annotationsPanelHtml: '' };
+  }
+
+  /**
    * Render popup using Lit's html template for proper IME/input handling
    */
   private renderPopupTemplate(state: AppState) {
@@ -628,9 +990,10 @@ export class AnnotationElement extends LitElement {
     if (!elementInfo && !existingAnnotation) return nothing;
 
     const info = elementInfo!;
-    const clickX = existingAnnotation ? existingAnnotation.clickX : state.popupClickX;
-    const clickY = existingAnnotation ? existingAnnotation.clickY : state.popupClickY;
-    const position = calculatePopupPosition(clickX, clickY);
+    const clickX = state.popupClickX || existingAnnotation?.clickX || 0;
+    const clickY = state.popupClickY || (existingAnnotation ? existingAnnotation.clickY - window.scrollY : 0);
+
+    const position = this.popupPosition ?? calculatePopupPosition(clickX, clickY);
 
     // Build header content
     const headerContent = isMultiSelect
@@ -654,7 +1017,7 @@ export class AnnotationElement extends LitElement {
     return html`
       <div
         class="popup-popover ${this.popupShaking ? 'shake' : ''}"
-        style="left: ${position.left}; top: ${position.top};"
+        style="left: ${position.left}px; top: ${position.top}px;"
         data-annotation-popup
       >
         <div class="popup-header">
@@ -700,6 +1063,13 @@ export class AnnotationElement extends LitElement {
     const state = this.appState;
     const settings = state.settings;
     const annotations = Array.from(state.annotations.values()).sort((a, b) => a.number - b.number);
+    const visibleAnnotations = annotations.filter((annotation) =>
+      isAnnotationVisibleOnRoute(annotation, this.currentRoute)
+    );
+    const totalAnnotationCount = annotations.length;
+    const nextAnnotationNumber = annotations.length > 0
+      ? Math.max(...annotations.map((annotation) => annotation.number)) + 1
+      : 1;
     const resolvedTheme = resolveTheme(settings.theme);
 
     // Track animations for settings panel
@@ -707,9 +1077,9 @@ export class AnnotationElement extends LitElement {
       const currentSettingsKey = JSON.stringify({
         settings,
         settingsPanelVisible: state.settingsPanelVisible,
-        annotationCount: annotations.length,
+        annotationCount: totalAnnotationCount,
         isFrozen: state.isFrozen,
-        markersVisible: state.markersVisible,
+        markerVisibility: state.markerVisibility,
         theme: resolvedTheme,
       });
 
@@ -720,64 +1090,41 @@ export class AnnotationElement extends LitElement {
       this.lastRenderedSettings = null;
     }
 
-    // Toolbar HTML (using existing templates with unsafeHTML)
-    let toolbarHtml = '';
-    if (state.toolbarExpanded) {
-      const showEntranceAnimation = !this.toolbarShownOnce;
-      if (showEntranceAnimation) {
-        this.toolbarShownOnce = true;
-      }
-
-      let settingsPanelHtml = '';
-      if (state.settingsPanelVisible) {
-        const skipSettingsAnimation = this.settingsPanelAnimated;
-        settingsPanelHtml = renderSettingsPanel({ settings, skipAnimation: skipSettingsAnimation });
-        this.settingsPanelAnimated = true;
-      } else {
-        this.settingsPanelAnimated = false;
-      }
-
-      toolbarHtml = renderExpandedToolbar({
-        annotationCount: annotations.length,
-        isFrozen: state.isFrozen,
-        markersVisible: state.markersVisible,
-        isDarkMode: resolvedTheme === 'dark',
-        showCopiedFeedback: state.showCopiedFeedback,
-        showClearedFeedback: state.showClearedFeedback,
-        showEntranceAnimation,
-        settingsPanelHtml,
-      });
-    } else {
-      this.toolbarShownOnce = false;
-      this.settingsPanelAnimated = false;
-      toolbarHtml = renderCollapsedToolbar(annotations.length);
-    }
+    const { toolbarHtml, annotationsPanelHtml } = this.buildToolbarAndPanelHtml(
+      state,
+      settings,
+      annotations,
+      totalAnnotationCount,
+      resolvedTheme
+    );
 
     // Markers HTML
+    // Show markers when:
+    //  - toolbar expanded + visibility is 'full' or 'dots'
+    //  - toolbar collapsed + visibility is 'dots' (persistent dot indicators)
+    const showMarkers = state.markerVisibility !== 'hidden'
+      && (state.toolbarExpanded || state.markerVisibility === 'dots');
     let markersHtml = '';
-    if (state.toolbarExpanded && state.markersVisible) {
+    if (showMarkers) {
       let pendingMarker = null;
-      let pendingMarkers: Array<{ x: number; y: number; isFixed: boolean }> = [];
+      let pendingMarkers: Array<{ x: number; y: number }> = [];
 
       if (state.popupVisible && !state.popupAnnotationId) {
         if (state.multiSelectElements.length > 1) {
-          pendingMarkers = state.multiSelectElements.map((el, i) => {
+          pendingMarkers = state.multiSelectElements.map((el) => {
             const rect = el.getBoundingClientRect();
             const centerX = rect.left + rect.width / 2;
             const centerY = rect.top + rect.height / 2;
-            const isFixed = state.multiSelectInfos[i]?.isFixed || false;
 
             return {
               x: centerX,
-              y: isFixed ? centerY : centerY + window.scrollY,
-              isFixed,
+              y: centerY + window.scrollY,
             };
           });
         } else if (state.pendingMarkerX !== 0) {
           pendingMarker = {
             x: state.pendingMarkerX,
             y: state.pendingMarkerY,
-            isFixed: state.pendingMarkerIsFixed,
           };
         }
       }
@@ -790,22 +1137,24 @@ export class AnnotationElement extends LitElement {
       }
 
       markersHtml = renderMarkers({
-        annotations,
+        annotations: visibleAnnotations,
         hoveredMarkerId: this.hoveredMarkerId,
         exitingMarkers: state.exitingMarkers,
         animatingMarkers: state.animatingMarkers,
         scrollY: state.scrollY,
         accentColor: settings.annotationColor,
+        markerVisibility: state.markerVisibility,
         pendingMarker,
         pendingMarkers,
+        nextNumber: nextAnnotationNumber,
         skipTooltipAnimation,
       });
     }
 
-    // Hover tooltip HTML
+    // Hover tooltip HTML (suppress during Cmd/Ctrl passthrough)
     let tooltipHtml = '';
     let highlightHtml = '';
-    if (state.toolbarExpanded && !state.popupVisible && state.hoveredElementInfo && settings.showTooltips) {
+    if (state.toolbarExpanded && !state.popupVisible && !state.passthroughActive && state.hoveredElementInfo && settings.showTooltips) {
       tooltipHtml = renderHoverTooltip({
         elementInfo: state.hoveredElementInfo,
         x: this.mouseX,
@@ -839,6 +1188,7 @@ export class AnnotationElement extends LitElement {
         @mouseout=${this.handleMouseOut}
       >
         ${unsafeHTML(toolbarHtml)}
+        ${unsafeHTML(annotationsPanelHtml)}
         ${unsafeHTML(markersHtml)}
         ${this.renderPopupTemplate(state)}
         ${unsafeHTML(tooltipHtml)}
@@ -856,6 +1206,47 @@ export class AnnotationElement extends LitElement {
   protected willUpdate() {
     // Position toolbar on each update
     requestAnimationFrame(() => this.positionToolbar());
+  }
+
+  private popupResizeObserver: ResizeObserver | null = null;
+
+  private syncPopupPosition() {
+    if (!this.appState?.popupVisible) {
+      this.popupPosition = null;
+      this.teardownPopupObserver();
+      return;
+    }
+
+    const popup = this.renderRoot?.querySelector('.popup-popover') as HTMLElement | null;
+    if (!popup) return;
+
+    const rect = popup.getBoundingClientRect();
+    const clickX = this.appState.popupClickX;
+    const clickY = this.appState.popupClickY;
+    const nextPosition = calculatePopupPosition(clickX, clickY, { width: rect.width, height: rect.height });
+
+    popup.style.left = `${nextPosition.left}px`;
+    popup.style.top = `${nextPosition.top}px`;
+
+    this.popupPosition = nextPosition;
+
+    // Use ResizeObserver to re-position when popup dimensions change
+    // (e.g. user types in textarea), instead of an unbounded polling timer.
+    if (!this.popupResizeObserver) {
+      this.popupResizeObserver = new ResizeObserver(() => {
+        if (this.appState?.popupVisible) {
+          this.syncPopupPosition();
+        }
+      });
+      this.popupResizeObserver.observe(popup);
+    }
+  }
+
+  private teardownPopupObserver() {
+    if (this.popupResizeObserver) {
+      this.popupResizeObserver.disconnect();
+      this.popupResizeObserver = null;
+    }
   }
 
   private positionToolbar() {

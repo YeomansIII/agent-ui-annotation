@@ -2,7 +2,7 @@
  * Marker template
  */
 
-import type { Annotation } from '../../core/types';
+import type { Annotation, MarkerVisibility } from '../../core/types';
 import { t } from '../../core/i18n';
 
 export interface MarkerRenderOptions {
@@ -12,47 +12,107 @@ export interface MarkerRenderOptions {
   isAnimating: boolean;
   scrollY: number;
   accentColor: string;
+  markerVisibility?: MarkerVisibility;
   skipTooltipAnimation?: boolean;
 }
 
 /**
- * Calculate marker position based on click coordinates
- *
- * Click coordinates are stored as:
- * - Fixed elements: viewport coordinates
- * - Non-fixed elements: document coordinates (viewport + scroll at click time)
- *
- * Rendering:
- * - Fixed elements: use stored coords directly (CSS position: fixed)
- * - Non-fixed elements: subtract current scroll to get viewport position
+ * Check if an element is visible within all its ancestor scroll containers.
+ * Returns false if the element is clipped (scrolled out of view) by any ancestor.
  */
-function getMarkerPosition(annotation: Annotation, scrollY: number): { x: number; y: number; isFixed: boolean } {
-  const isFixed = annotation.elementInfo.isFixed;
-  const x = annotation.clickX;
-  const y = annotation.clickY;
+function isVisibleInScrollAncestors(element: Element): boolean {
+  const elementRect = element.getBoundingClientRect();
+  let current = element.parentElement;
 
-  if (isFixed) {
-    // Fixed elements: coords are viewport-relative, use directly
-    return { x, y, isFixed: true };
+  while (current && current !== document.documentElement) {
+    const style = getComputedStyle(current);
+    const overflowX = style.overflowX;
+    const overflowY = style.overflowY;
+
+    if (
+      overflowX === 'hidden' || overflowX === 'scroll' || overflowX === 'auto' ||
+      overflowY === 'hidden' || overflowY === 'scroll' || overflowY === 'auto'
+    ) {
+      const containerRect = current.getBoundingClientRect();
+      if (
+        elementRect.bottom <= containerRect.top ||
+        elementRect.top >= containerRect.bottom ||
+        elementRect.right <= containerRect.left ||
+        elementRect.left >= containerRect.right
+      ) {
+        return false;
+      }
+    }
+
+    current = current.parentElement;
   }
 
-  // Non-fixed elements: coords are document-relative, convert to viewport
-  return { x, y: y - scrollY, isFixed: false };
+  return true;
+}
+
+/**
+ * Calculate marker position based on live element or stored coordinates.
+ *
+ * When the annotation has a connected DOM element, we use
+ * getBoundingClientRect() + stored offset percentages for pixel-perfect
+ * tracking as the element scrolls, resizes, or repositions.
+ *
+ * When the element is unavailable (e.g., removed from DOM, not yet
+ * re-found after reload), we fall back to stored document-absolute
+ * coordinates, converting to viewport by subtracting current scrollY.
+ */
+function getMarkerPosition(
+  annotation: Annotation,
+  scrollY: number
+): { x: number; y: number; hidden: boolean } {
+  // Live element tracking: use getBoundingClientRect() for real-time position
+  if (annotation.element && annotation.element.isConnected) {
+    const rect = annotation.element.getBoundingClientRect();
+
+    // Element is hidden (zero dimensions — display:none, collapsed, etc.)
+    if (rect.width === 0 && rect.height === 0) {
+      return { x: 0, y: 0, hidden: true };
+    }
+
+    // Element is clipped by an ancestor scroll container
+    if (!isVisibleInScrollAncestors(annotation.element)) {
+      return { x: 0, y: 0, hidden: true };
+    }
+
+    const offsetX = annotation.offsetX;
+    const offsetY = annotation.offsetY;
+
+    // getBoundingClientRect() returns viewport-relative coordinates,
+    // which map directly to our fixed-position markers container
+    return {
+      x: rect.left + rect.width * offsetX,
+      y: rect.top + rect.height * offsetY,
+      hidden: false,
+    };
+  }
+
+  // Fallback: stored document-absolute coords → convert to viewport
+  return { x: annotation.clickX, y: annotation.clickY - scrollY, hidden: false };
 }
 
 /**
  * Render a single marker
  */
 export function renderMarker(options: MarkerRenderOptions): string {
-  const { annotation, isHovered, isExiting, isAnimating, scrollY, accentColor, skipTooltipAnimation = false } = options;
+  const { annotation, isHovered, isExiting, isAnimating, scrollY, accentColor, markerVisibility = 'full', skipTooltipAnimation = false } = options;
 
   const pos = getMarkerPosition(annotation, scrollY);
 
+  // Don't render markers whose elements are hidden
+  if (pos.hidden) return '';
+
+  const isDots = markerVisibility === 'dots';
+
   const classes = [
     'marker',
-    pos.isFixed ? 'fixed' : '',
     isExiting ? 'exiting' : '',
     isAnimating ? 'entering' : '',
+    isDots ? 'dot-only' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -71,16 +131,18 @@ export function renderMarker(options: MarkerRenderOptions): string {
       data-annotation-id="${annotation.id}"
       title="${annotation.elementInfo.humanReadable}"
     >
-      ${annotation.number}
-      ${isHovered ? renderMarkerTooltip(annotation, skipTooltipAnimation) : ''}
+      ${isDots ? '' : annotation.number}
+      ${!isDots && isHovered ? renderMarkerTooltip(annotation, skipTooltipAnimation, pos.x, pos.y) : ''}
     </div>
   `;
 }
 
 /**
- * Render marker tooltip
+ * Render marker tooltip with viewport-aware positioning.
+ * Uses the marker's viewport position to determine if the tooltip
+ * should appear below (near top edge) or shift horizontally (near side edges).
  */
-function renderMarkerTooltip(annotation: Annotation, skipAnimation: boolean): string {
+function renderMarkerTooltip(annotation: Annotation, skipAnimation: boolean, markerX: number, markerY: number): string {
   const element = annotation.elementInfo.humanReadable;
   const comment = annotation.comment
     ? annotation.comment.length > 100
@@ -88,8 +150,28 @@ function renderMarkerTooltip(annotation: Annotation, skipAnimation: boolean): st
       : annotation.comment
     : t('marker.noComment');
 
+  const tooltipWidth = 300; // max-width from CSS
+  const tooltipHeight = 60; // approximate
+  const edgeMargin = 16;
+
+  const classes = ['marker-tooltip'];
+
+  // Vertical: show below if marker is too close to top of viewport
+  if (markerY < tooltipHeight + edgeMargin + 24) {
+    classes.push('below');
+  }
+
+  // Horizontal: shift if marker is too close to viewport edges
+  if (markerX < tooltipWidth / 2 + edgeMargin) {
+    classes.push('align-start');
+  } else if (markerX > window.innerWidth - tooltipWidth / 2 - edgeMargin) {
+    classes.push('align-end');
+  }
+
+  if (skipAnimation) classes.push('no-animate');
+
   return `
-    <div class="marker-tooltip${skipAnimation ? ' no-animate' : ''}">
+    <div class="${classes.join(' ')}">
       <div class="tooltip-element">${escapeHtml(element)}</div>
       <div class="tooltip-comment">${escapeHtml(comment)}</div>
     </div>
@@ -99,7 +181,6 @@ function renderMarkerTooltip(annotation: Annotation, skipAnimation: boolean): st
 export interface PendingMarker {
   x: number;
   y: number;
-  isFixed: boolean;
 }
 
 /**
@@ -107,7 +188,7 @@ export interface PendingMarker {
  */
 function renderPendingMarker(pending: PendingMarker, scrollY: number, accentColor: string, nextNumber: number): string {
   const x = pending.x;
-  const y = pending.isFixed ? pending.y : pending.y - scrollY;
+  const y = pending.y - scrollY;
 
   const style = `
     left: ${x}px;
@@ -118,7 +199,7 @@ function renderPendingMarker(pending: PendingMarker, scrollY: number, accentColo
 
   return `
     <div
-      class="marker pending${pending.isFixed ? ' fixed' : ''}"
+      class="marker pending"
       style="${style}"
       data-annotation-marker
       data-pending="true"
@@ -138,11 +219,13 @@ export function renderMarkers(options: {
   animatingMarkers: Set<string>;
   scrollY: number;
   accentColor: string;
+  markerVisibility?: MarkerVisibility;
   pendingMarker?: PendingMarker | null;
   pendingMarkers?: PendingMarker[];
+  nextNumber?: number;
   skipTooltipAnimation?: boolean;
 }): string {
-  const { annotations, hoveredMarkerId, exitingMarkers, animatingMarkers, scrollY, accentColor, pendingMarker, pendingMarkers = [], skipTooltipAnimation = false } = options;
+  const { annotations, hoveredMarkerId, exitingMarkers, animatingMarkers, scrollY, accentColor, markerVisibility = 'full', pendingMarker, pendingMarkers = [], nextNumber, skipTooltipAnimation = false } = options;
 
   const markerHtml = annotations
     .map((annotation) =>
@@ -153,6 +236,7 @@ export function renderMarkers(options: {
         isAnimating: animatingMarkers.has(annotation.id),
         scrollY,
         accentColor,
+        markerVisibility,
         skipTooltipAnimation,
       })
     )
@@ -161,14 +245,16 @@ export function renderMarkers(options: {
   // Add pending markers if popup is open for new annotation(s)
   let pendingHtml = '';
 
+  const baseNumber = nextNumber ?? (annotations.length + 1);
+
   if (pendingMarkers.length > 0) {
     // Multi-select: render pending markers for all selected elements
     pendingHtml = pendingMarkers
-      .map((pm, i) => renderPendingMarker(pm, scrollY, accentColor, annotations.length + 1 + i))
+      .map((pm, i) => renderPendingMarker(pm, scrollY, accentColor, baseNumber + i))
       .join('');
   } else if (pendingMarker) {
     // Single selection: render one pending marker
-    pendingHtml = renderPendingMarker(pendingMarker, scrollY, accentColor, annotations.length + 1);
+    pendingHtml = renderPendingMarker(pendingMarker, scrollY, accentColor, baseNumber);
   }
 
   return `<div class="markers">${markerHtml}${pendingHtml}</div>`;
