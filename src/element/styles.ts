@@ -175,6 +175,7 @@ export const componentStyles = css`
     align-items: center;
     justify-content: center;
     gap: var(--as-space-xs);
+    width: auto;
     padding: 0 var(--as-space-sm);
     font-size: var(--as-font-size-sm);
     font-weight: 500;

@@ -585,17 +585,35 @@ export class AnnotationElement extends LitElement {
   private openAnnotationPopup(annotationId: string) {
     if (!this.core) return;
 
-    // Scroll to the annotation element if possible
     const annotation = this.core.store.getState().annotations.get(annotationId);
-    if (annotation && annotation.element && annotation.element.isConnected) {
-      annotation.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const element = annotation?.element;
+
+    if (element && element.isConnected) {
+      const rect = element.getBoundingClientRect();
+      const isInViewport = rect.top >= 0 && rect.bottom <= window.innerHeight;
+
+      if (isInViewport) {
+        // Element already visible, show popup at its position
+        this.core.showPopup(annotationId);
+        return;
+      }
+
+      // Scroll into view, then show popup at the element's new position
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const onScrollEnd = () => {
+        if (!this.core) return;
+        const updatedRect = element.getBoundingClientRect();
+        const x = updatedRect.left + updatedRect.width * (annotation.offsetX ?? 0.5);
+        const y = updatedRect.top + updatedRect.height * (annotation.offsetY ?? 0.5);
+        this.core.showPopup(annotationId, { x, y });
+      };
+      // scrollIntoView with smooth has no callback; use a timeout as fallback
+      setTimeout(onScrollEnd, 400);
+      return;
     }
-    
-    // Show popup in the center of the screen since we are scrolling to it
-    this.core.showPopup(annotationId, {
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-    });
+
+    // No live element, fall back to stored coordinates
+    this.core.showPopup(annotationId);
   }
 
   private handleAction(action: string, target: HTMLElement, event: Event) {
