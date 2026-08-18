@@ -2,11 +2,12 @@
  * LocalStorage persistence for annotations and settings
  */
 
-import type { Annotation, AnnotationId, Settings, ElementInfo } from '../types';
+import type { Annotation, AnnotationId, Settings, ElementInfo, Position } from '../types';
 
 const ANNOTATION_KEY_PREFIX = 'annotation-annotations-';
 const SETTINGS_KEY = 'annotation-settings';
 const THEME_KEY = 'annotation-theme';
+const TOOLBAR_POSITION_KEY = 'annotation-toolbar-position';
 
 /** Retention period in milliseconds (7 days) */
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -212,6 +213,38 @@ export function loadTheme(): 'light' | 'dark' | null {
     return null;
   } catch (error) {
     console.error('[Annotation] Failed to load theme:', error);
+    return null;
+  }
+}
+
+/**
+ * Save the user-placed toolbar position
+ */
+export function saveToolbarPosition(position: Position): boolean {
+  try {
+    localStorage.setItem(TOOLBAR_POSITION_KEY, JSON.stringify(position));
+    return true;
+  } catch (error) {
+    console.error('[Annotation] Failed to save toolbar position:', error);
+    return false;
+  }
+}
+
+/**
+ * Load the user-placed toolbar position
+ */
+export function loadToolbarPosition(): Position | null {
+  try {
+    const stored = localStorage.getItem(TOOLBAR_POSITION_KEY);
+    if (!stored) return null;
+
+    const parsed = JSON.parse(stored) as Partial<Position>;
+    if (typeof parsed.x !== 'number' || typeof parsed.y !== 'number') return null;
+    if (!Number.isFinite(parsed.x) || !Number.isFinite(parsed.y)) return null;
+
+    return { x: parsed.x, y: parsed.y };
+  } catch (error) {
+    console.error('[Annotation] Failed to load toolbar position:', error);
     return null;
   }
 }

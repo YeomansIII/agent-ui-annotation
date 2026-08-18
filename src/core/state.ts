@@ -34,6 +34,7 @@ export function createInitialState(overrides?: Partial<AppState>): AppState {
     mode: 'disabled' as ToolMode,
     toolbarExpanded: false,
     toolbarPosition: { ...DEFAULT_TOOLBAR_POSITION },
+    hasCustomToolbarPosition: false,
     settings: { ...DEFAULT_SETTINGS },
     isSelecting: false,
     selectionRect: null,

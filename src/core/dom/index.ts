@@ -38,3 +38,11 @@ export {
 export {
   refindElement,
 } from './element-refinder';
+
+export {
+  TOOLBAR_DRAG_THRESHOLD,
+  TOOLBAR_VIEWPORT_PADDING,
+  clampToolbarPosition,
+  hasExceededDragThreshold,
+  computeDraggedToolbarPosition,
+} from './toolbar-drag';

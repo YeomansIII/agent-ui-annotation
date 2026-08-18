@@ -68,16 +68,28 @@ export const componentStyles = css`
     box-shadow: var(--as-shadow-lg);
     backdrop-filter: var(--as-backdrop-blur);
     user-select: none;
+    touch-action: none;
+    -webkit-user-drag: none;
     transition: transform var(--as-transition-normal), opacity var(--as-transition-normal);
   }
 
   .toolbar.collapsed {
     padding: var(--as-space-sm);
+    cursor: grab;
+  }
+
+  .toolbar.collapsed .toggle-btn {
+    cursor: grab;
   }
 
   .toolbar.dragging {
-    cursor: move;
+    cursor: grabbing;
     opacity: 0.9;
+  }
+
+  .toolbar.dragging,
+  .toolbar.dragging .toolbar-btn {
+    cursor: grabbing;
   }
 
   /* Toolbar entrance animation */

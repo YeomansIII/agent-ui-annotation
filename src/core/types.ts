@@ -251,6 +251,8 @@ export interface AppState {
   toolbarExpanded: boolean;
   /** Toolbar position */
   toolbarPosition: Position;
+  /** Whether the user placed the toolbar at a custom pixel position */
+  hasCustomToolbarPosition: boolean;
   /** User settings */
   settings: Settings;
   /** Whether currently drag-selecting */

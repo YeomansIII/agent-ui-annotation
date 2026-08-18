@@ -21,6 +21,8 @@ export {
   loadSettings,
   saveTheme,
   loadTheme,
+  saveToolbarPosition,
+  loadToolbarPosition,
   createAutoSaver,
   cleanupExpiredAnnotations,
 } from './persistence';

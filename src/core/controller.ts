@@ -11,6 +11,7 @@ import {
   loadAnnotations,
   loadSettings,
   saveSettings,
+  loadToolbarPosition,
   createAutoSaver,
 } from './annotations/persistence';
 import { generateOutput, copyToClipboard } from './annotations/output';
@@ -112,6 +113,7 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
   // Load persisted data
   const persistedSettings = loadPersisted ? loadSettings() : null;
   const persistedAnnotations = loadPersisted ? loadAnnotations() : new Map();
+  const persistedToolbarPosition = loadPersisted ? loadToolbarPosition() : null;
 
   // Merge settings
   const mergedSettings: Settings = {
@@ -125,6 +127,12 @@ export function createAnnotationCore(options: AnnotationCoreOptions = {}): Annot
     createInitialState({
       settings: mergedSettings,
       annotations: persistedAnnotations,
+      ...(persistedToolbarPosition
+        ? {
+            toolbarPosition: persistedToolbarPosition,
+            hasCustomToolbarPosition: true,
+          }
+        : {}),
     })
   );
 

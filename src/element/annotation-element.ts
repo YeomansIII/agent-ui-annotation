@@ -25,6 +25,15 @@ import { t } from '../core/i18n';
 import { getCurrentRoute, isAnnotationVisibleOnRoute, getAnnotationRoute } from '../core/annotations/route';
 import { createDevtoolsApi, attachDevtoolsApi, detachDevtoolsApi, type DevtoolsApi } from './devtools-api';
 import { refindElement } from '../core/dom/element-refinder';
+import { setDraggingMode } from '../core/dom/cursor';
+import {
+  clampToolbarPosition,
+  computeDraggedToolbarPosition,
+  hasExceededDragThreshold,
+  TOOLBAR_VIEWPORT_PADDING,
+} from '../core/dom/toolbar-drag';
+import { saveToolbarPosition } from '../core/annotations/persistence';
+import type { Position } from '../core/types';
 
 /**
  * Annotation Web Component
@@ -96,7 +105,23 @@ export class AnnotationElement extends LitElement {
   private boundHandleMouseMove = (e: MouseEvent) => this.handleMouseMove(e);
   private boundHandleDocumentClick = (e: Event) => this.handleDocumentClick(e);
   private boundHandleScroll = () => this.handleScroll();
+  private boundHandleToolbarPointerMove = (e: PointerEvent) => this.handleToolbarPointerMove(e);
+  private boundHandleToolbarPointerUp = (e: PointerEvent) => this.handleToolbarPointerUp(e);
   private scrollRafPending = false;
+
+  // Toolbar drag session (kept off the store so mid-drag hovers do not snap the toolbar)
+  private toolbarDrag: {
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    width: number;
+    height: number;
+    didDrag: boolean;
+  } | null = null;
+  private dragPosition: Position | null = null;
+  private suppressToolbarClick = false;
 
   // Textarea ref for autofocus
   private textareaRef: Ref<HTMLTextAreaElement> = createRef();
@@ -174,6 +199,7 @@ export class AnnotationElement extends LitElement {
     document.removeEventListener('scroll', this.boundHandleScroll, true);
     document.removeEventListener('mousemove', this.boundHandleMouseMove);
     document.removeEventListener('click', this.boundHandleDocumentClick);
+    this.teardownToolbarDrag();
 
     this.teardownPopupObserver();
 
@@ -363,6 +389,8 @@ export class AnnotationElement extends LitElement {
       annotations: newAnnotations,
       scrollY: window.scrollY,
     });
+
+    this.clampAndPersistToolbarPosition();
   }
 
   /**
@@ -686,6 +714,13 @@ export class AnnotationElement extends LitElement {
 
   private handleClick(event: Event) {
     if (!this.core) return;
+
+    if (this.suppressToolbarClick) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.suppressToolbarClick = false;
+      return;
+    }
 
     const target = event.target as HTMLElement;
     const action = target.closest('[data-action]')?.getAttribute('data-action');
@@ -1202,6 +1237,7 @@ export class AnnotationElement extends LitElement {
         class="annotation-root"
         @click=${this.handleClick}
         @change=${this.handleClick}
+        @pointerdown=${this.handleToolbarPointerDown}
         @mouseover=${this.handleMouseOver}
         @mouseout=${this.handleMouseOut}
       >
@@ -1267,40 +1303,176 @@ export class AnnotationElement extends LitElement {
     }
   }
 
+  private handleToolbarPointerDown(event: PointerEvent) {
+    if (!this.core || !this.appState) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (this.toolbarDrag) return;
+
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+    if (target.closest('[data-annotation-settings], [data-annotation-list-panel]')) return;
+    if (target.closest('select, textarea, input')) return;
+
+    const toolbar = target.closest('[data-annotation-toolbar]') as HTMLElement | null;
+    if (!toolbar) return;
+
+    const rect = toolbar.getBoundingClientRect();
+    this.toolbarDrag = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: rect.left,
+      originY: rect.top,
+      width: rect.width,
+      height: rect.height,
+      didDrag: false,
+    };
+
+    document.addEventListener('pointermove', this.boundHandleToolbarPointerMove);
+    document.addEventListener('pointerup', this.boundHandleToolbarPointerUp);
+    document.addEventListener('pointercancel', this.boundHandleToolbarPointerUp);
+  }
+
+  private handleToolbarPointerMove(event: PointerEvent) {
+    if (!this.toolbarDrag || event.pointerId !== this.toolbarDrag.pointerId) return;
+
+    const toolbar = this.renderRoot.querySelector('.toolbar') as HTMLElement | null;
+    if (!toolbar) return;
+
+    if (!this.toolbarDrag.didDrag) {
+      if (!hasExceededDragThreshold(this.toolbarDrag.startX, this.toolbarDrag.startY, event.clientX, event.clientY)) {
+        return;
+      }
+      this.toolbarDrag.didDrag = true;
+      this.suppressToolbarClick = true;
+      toolbar.classList.add('dragging');
+      setDraggingMode(true);
+    }
+
+    event.preventDefault();
+
+    const next = computeDraggedToolbarPosition(
+      { x: this.toolbarDrag.originX, y: this.toolbarDrag.originY },
+      { x: this.toolbarDrag.startX, y: this.toolbarDrag.startY },
+      { x: event.clientX, y: event.clientY },
+      { width: this.toolbarDrag.width, height: this.toolbarDrag.height },
+      { width: window.innerWidth, height: window.innerHeight }
+    );
+
+    this.dragPosition = next;
+    toolbar.style.left = `${next.x}px`;
+    toolbar.style.top = `${next.y}px`;
+  }
+
+  private handleToolbarPointerUp(event: PointerEvent) {
+    if (!this.toolbarDrag || event.pointerId !== this.toolbarDrag.pointerId) return;
+
+    const didDrag = this.toolbarDrag.didDrag;
+    const nextPosition = this.dragPosition;
+    this.teardownToolbarDrag();
+
+    if (!didDrag || !nextPosition || !this.core) return;
+
+    this.core.store.setState({
+      toolbarPosition: nextPosition,
+      hasCustomToolbarPosition: true,
+      isDraggingToolbar: false,
+    });
+    this.core.eventBus.emit('toolbar:drag', { position: nextPosition });
+    saveToolbarPosition(nextPosition);
+
+    // Click fires after pointerup when the pointer stays on the button.
+    // Clear the suppress flag on the next tick if that click never arrives.
+    window.setTimeout(() => {
+      this.suppressToolbarClick = false;
+    }, 0);
+  }
+
+  private teardownToolbarDrag() {
+    const toolbar = this.renderRoot?.querySelector('.toolbar') as HTMLElement | null;
+    if (toolbar) {
+      toolbar.classList.remove('dragging');
+    }
+    setDraggingMode(false);
+    document.removeEventListener('pointermove', this.boundHandleToolbarPointerMove);
+    document.removeEventListener('pointerup', this.boundHandleToolbarPointerUp);
+    document.removeEventListener('pointercancel', this.boundHandleToolbarPointerUp);
+    this.toolbarDrag = null;
+    this.dragPosition = null;
+  }
+
+  private clampAndPersistToolbarPosition() {
+    if (!this.core || !this.appState?.hasCustomToolbarPosition) return;
+
+    const toolbar = this.renderRoot.querySelector('.toolbar') as HTMLElement | null;
+    if (!toolbar) return;
+
+    const clamped = clampToolbarPosition(
+      this.appState.toolbarPosition.x,
+      this.appState.toolbarPosition.y,
+      { width: toolbar.offsetWidth, height: toolbar.offsetHeight },
+      { width: window.innerWidth, height: window.innerHeight }
+    );
+
+    if (clamped.x === this.appState.toolbarPosition.x && clamped.y === this.appState.toolbarPosition.y) {
+      return;
+    }
+
+    this.core.store.setState({ toolbarPosition: clamped });
+    saveToolbarPosition(clamped);
+  }
+
   private positionToolbar() {
     if (!this.appState) return;
 
     const toolbar = this.renderRoot.querySelector('.toolbar') as HTMLElement;
     if (!toolbar) return;
 
-    const padding = 20;
-    const { toolbarPosition } = this.appState.settings;
-
-    let x: number, y: number;
-
-    switch (toolbarPosition) {
-      case 'top-left':
-        x = padding;
-        y = padding;
-        break;
-      case 'top-right':
-        x = window.innerWidth - toolbar.offsetWidth - padding;
-        y = padding;
-        break;
-      case 'bottom-left':
-        x = padding;
-        y = window.innerHeight - toolbar.offsetHeight - padding;
-        break;
-      case 'bottom-right':
-      default:
-        x = window.innerWidth - toolbar.offsetWidth - padding;
-        y = window.innerHeight - toolbar.offsetHeight - padding;
-        break;
+    if (this.toolbarDrag?.didDrag) {
+      toolbar.classList.add('dragging');
     }
 
-    if (this.appState.toolbarPosition.x !== 20 || this.appState.toolbarPosition.y !== 20) {
-      x = this.appState.toolbarPosition.x;
-      y = this.appState.toolbarPosition.y;
+    const padding = TOOLBAR_VIEWPORT_PADDING;
+    const toolbarSize = { width: toolbar.offsetWidth, height: toolbar.offsetHeight };
+    const viewport = { width: window.innerWidth, height: window.innerHeight };
+    let x: number;
+    let y: number;
+
+    if (this.dragPosition) {
+      x = this.dragPosition.x;
+      y = this.dragPosition.y;
+    } else if (this.appState.hasCustomToolbarPosition) {
+      const clamped = clampToolbarPosition(
+        this.appState.toolbarPosition.x,
+        this.appState.toolbarPosition.y,
+        toolbarSize,
+        viewport,
+        padding
+      );
+      x = clamped.x;
+      y = clamped.y;
+    } else {
+      const { toolbarPosition } = this.appState.settings;
+
+      switch (toolbarPosition) {
+        case 'top-left':
+          x = padding;
+          y = padding;
+          break;
+        case 'top-right':
+          x = window.innerWidth - toolbar.offsetWidth - padding;
+          y = padding;
+          break;
+        case 'bottom-left':
+          x = padding;
+          y = window.innerHeight - toolbar.offsetHeight - padding;
+          break;
+        case 'bottom-right':
+        default:
+          x = window.innerWidth - toolbar.offsetWidth - padding;
+          y = window.innerHeight - toolbar.offsetHeight - padding;
+          break;
+      }
     }
 
     toolbar.style.left = `${x}px`;

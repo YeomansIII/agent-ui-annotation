@@ -7,6 +7,8 @@ import {
   saveAnnotations,
   loadAnnotations,
   clearAnnotations,
+  saveToolbarPosition,
+  loadToolbarPosition,
 } from '../../src/core/annotations/persistence';
 import type { Annotation, AnnotationId } from '../../src/core/types';
 
@@ -169,4 +171,28 @@ describe('Annotation persistence', () => {
     expect(loadedAnnotation?.offsetY).toBe(0.75);
   });
 
+});
+
+describe('Toolbar position persistence', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+  });
+
+  it('saves and loads a custom toolbar position', () => {
+    expect(saveToolbarPosition({ x: 120, y: 80 })).toBe(true);
+    expect(loadToolbarPosition()).toEqual({ x: 120, y: 80 });
+  });
+
+  it('returns null when no position is stored', () => {
+    expect(loadToolbarPosition()).toBeNull();
+  });
+
+  it('returns null for malformed stored data', () => {
+    localStorage.setItem('annotation-toolbar-position', '{"x":"left"}');
+    expect(loadToolbarPosition()).toBeNull();
+  });
 });
